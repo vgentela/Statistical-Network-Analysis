@@ -6,13 +6,15 @@ Data Extraction:
 - As of now, the file also includes comments that contain ideas for furthering the project
 
 The Network Description:
-Statistical-Network-Analysis/Bsky_network_card.tex
-
+- The network is described using a [network card](https://github.com/vgentela/Statistical-Network-Analysis/blob/main/Bsky_network_card.tex)
+- Network card is a network descriptor which can be imported from the network-cards library. More on network cards in the [paper](https://arxiv.org/abs/2206.00026)
+- This is the link to the [GitHub repository](https://github.com/network-cards/network-cards)
+  
 The Network itself:
-Statistical-Network-Analysis/graph.gml
+This is the network file in the gml format: [Network](https://github.com/vgentela/Statistical-Network-Analysis/blob/main/graph.gml)
 
 Network drawn usign GEPHI:
-Statistical-Network-Analysis/bsky net.gephi
+This is the network file drawn using GEPHI: ![Gephi network](https://github.com/vgentela/Statistical-Network-Analysis/blob/main/bsky%20net.gephi)
 
 License:
-Statistical-Network-Analysis/LICENSE
+[LICENSE](https://github.com/vgentela/Statistical-Network-Analysis/blob/main/LICENSE)
