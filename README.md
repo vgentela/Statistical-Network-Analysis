@@ -3,6 +3,7 @@ In this project, Bluesky, a social media application, is represented as a networ
 
 Data Extraction:
 - The file project_data.py contains the code to extract the data from Bluesky API.
+- Please replace the 'username' and 'password' with your actual username and password while sending a login request to the client. You can find the corresponding lines of code in the second cell of `project_data.py`.
 - As of now, the file also includes comments that contain ideas for furthering the project
 
 The Network Description:
