@@ -6,13 +6,13 @@ Data Extraction:
 - As of now, the file also includes comments that contain ideas for furthering the project
 
 The Network Description:
-/Bsky_network_card.tex
+Statistical-Network-Analysis/Bsky_network_card.tex
 
 The Network itself:
-/graph.gml
+Statistical-Network-Analysis/graph.gml
 
 Network drawn usign GEPHI:
-/bsky net.gephi
+Statistical-Network-Analysis/bsky net.gephi
 
 License:
-/LICENSE
+Statistical-Network-Analysis/LICENSE
