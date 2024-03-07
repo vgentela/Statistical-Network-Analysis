@@ -11,8 +11,7 @@ The Network Description:
   ![Network Card](https://github.com/vgentela/Statistical-Network-Analysis/blob/main/network_card.png)
   
 - The network is described using a [network card](https://github.com/vgentela/Statistical-Network-Analysis/blob/main/Bsky_network_card.tex)
-- Network card is a network descriptor which can be imported from the network-cards library. More on network cards in the [paper](https://arxiv.org/abs/2206.00026)
-- This is the link to the [GitHub repository](https://github.com/network-cards/network-cards)
+- Network card is a network descriptor which can be imported from the network-cards library. More on network cards in the [paper](https://arxiv.org/abs/2206.00026) and the [GitHub repository](https://github.com/network-cards/network-cards)
   
 The Network itself:
 This is the network file in the gml format: [Network](https://github.com/vgentela/Statistical-Network-Analysis/blob/main/graph.gml)
