@@ -21,4 +21,4 @@ Network drawn usign GEPHI:
 This is the network file drawn using GEPHI: ![Gephi network](https://github.com/vgentela/Statistical-Network-Analysis/blob/main/Fullnet.png)
 
 License:
-All the contents in this repository are licensed using by the [CC0 1.0 Universal LICENSE](https://github.com/vgentela/Statistical-Network-Analysis/blob/main/LICENSE)
+All the contents in this repository are licensed using [CC0 1.0 Universal LICENSE](https://github.com/vgentela/Statistical-Network-Analysis/blob/main/LICENSE)
