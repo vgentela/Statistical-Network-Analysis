@@ -1,0 +1,21 @@
+name: Auto Pull
+
+on:
+  workflow_dispatch:
+  push:
+    paths:
+      - 'C:\\Users\\Varshney\\Documents\\GitHub\\Statistical-Network-Analysis\\project_data.py'
+
+jobs:
+  pull_changes:
+    runs-on: windows-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v2
+
+      - name: Pull changes
+        run: |
+          copy C:\\Users\\Varshney\\Documents\\GitHub\\Statistical-Network-Analysis\\project_data.py .
+          git add project_data.py
+          git commit -m "Update project_data.py"
+          git push
