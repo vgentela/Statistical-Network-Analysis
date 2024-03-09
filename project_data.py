@@ -7,142 +7,139 @@ from atproto import Client
 import json
 import networkx as nx
 import network_cards as nc
-#from network_cards import NetworkCard, NodeCard, EdgeCard
-
 import matplotlib.pyplot as plt
 from pyvis.network import Network
 #%%
 client = Client(base_url='https://bsky.social/xrpc')
-ab = client.login('username', 'password')
+ab = client.login('t0st.bsky.social', 'Val124#$')
 
 jwt = client._access_jwt
 print(jwt)
 
 
 #%% Looping using feed generator to extract like_count,reply_count,repost_count,hash_tags for every did
+class UserData():
 
-def extract_did_list(data):
-    did_list = []
-    
-    next_page = data.cursor
+    def __init__(self,data):
+        self.data = data
 
-    for post in data.feed:
-        post_str = str(post)
-        like_count = re.search(r"like_count=(\d+)", post_str).group(1)
-        reply_count = re.search(r"reply_count=(\d+)", post_str).group(1)
-        repost_count = re.search(r"repost_count=(\d+)", post_str).group(1)
-        hash_tags = re.findall(r"tag='([^']+)'", post_str)
-        did = re.search(r"did='(.*?)'", post_str).group(1)
-        uri = re.search(r"uri='(at://[^']+)'", post_str).group(1)
-        cid = re.search(r"cid='([^']+)'",post_str).group(1)
-        #print(post)
-        if next_page is not None:
-    
-            did_list.append([did,like_count,reply_count,repost_count,uri,cid,hash_tags])
-                
-            data = client.app.bsky.feed.get_feed({
-                    'feed': 'at://did:plc:nylio5rpw7u3wtven3vcriam/app.bsky.feed.generator/aaai4amp77qp6',
-                    'limit': 100, 'cursor': next_page
-                    }, headers={'Accept-Language': 'en-US'})  
-                
-            next_page = data.cursor
-
-        else:
-            did_list.append([did,like_count,reply_count,repost_count,uri,cid,hash_tags])    
-    return did_list
+        self.extract_did_list()
+        self.extract_attributes()
 
 
-# %% Function to extract did's,cid's,uri's only from the did_list
-
-did_list = extract_did_list(data = client.app.bsky.feed.get_feed({
-    'feed': 'at://did:plc:nylio5rpw7u3wtven3vcriam/app.bsky.feed.generator/aaai4amp77qp6',
-    'limit': 100,
-}, headers={'Accept-Language': 'en-US'})  )
-print(did_list[3])
-
-def extract_attributes(did_list):
-    dids = []
-    cids =[]
-    uris = []
-
-    for i in did_list:
-        did = i[0]
-        uri = i[4]
-        cid = i[5]
-        dids.append(did)
-        cids.append(cid)
-        uris.append(uri)
-
-    return dids,cids,uris
-
-dids,cids,uris = extract_attributes(did_list)
-#print(dids[3],cids[3],uris[3])
-
-
-# %% Function to extract the followers and following count of every did
-
-def followers_and_following(dids,cids, uris):
-    actor_list = []
-    actor_likes = []
-    post_likes = []
-    reposts = []
-    thread_replies = []
-
-    conn = http.client.HTTPSConnection("bsky.social")
-    pattern = r'"followersCount":(\d+),"followsCount":(\d+),'
-    for did,cid,uri in zip(dids,cids,uris):
-        payload = ''
-        headers = {
-        'Accept': 'application/json',
-        'Authorization': f'Bearer {jwt}'
-        }
-        conn.request("GET", f"/xrpc/app.bsky.actor.getProfile?actor={did}", payload, headers)
-        res1 = conn.getresponse()
-        data1= res1.read()
-        actor_profile = data1.decode("utf-8")
-
-        conn.request("GET", f"/xrpc/app.bsky.feed.getLikes?uri={uri}&cid={cid}", payload, headers)
-        res2 = conn.getresponse()
-        data2 = res2.read()
-        likes = data2.decode("utf-8")
+    def extract_did_list(self):
+        did_list = []   
         
-        conn.request("GET", f"/xrpc/app.bsky.feed.getRepostedBy?uri={uri}", payload, headers)
-        res3 = conn.getresponse()
-        data3 = res3.read()
-        repost = data3.decode("utf-8")
+        next_page = self.data.cursor
 
-        conn.request("GET", f"/xrpc/app.bsky.feed.getPostThread?uri={uri}", payload, headers)
-        res4 = conn.getresponse()
-        data4 = res4.read()
-        thread = data4.decode("utf-8")
-
+        for post in self.data.feed:
+            post_str = str(post)
+            like_count = re.search(r"like_count=(\d+)", post_str).group(1)
+            reply_count = re.search(r"reply_count=(\d+)", post_str).group(1)
+            repost_count = re.search(r"repost_count=(\d+)", post_str).group(1)
+            hash_tags = re.findall(r"tag='([^']+)'", post_str)
+            did = re.search(r"did='(.*?)'", post_str).group(1)
+            uri = re.search(r"uri='(at://[^']+)'", post_str).group(1)
+            cid = re.search(r"cid='([^']+)'",post_str).group(1)
+            #print(post)
+            if next_page is not None:
         
-        repost_dids = re.findall(r'"did":"(did:plc:[^"]+)"',repost)
+                did_list.append([did,like_count,reply_count,repost_count,uri,cid,hash_tags])
 
-        likers = re.findall(r'"did":"(did:plc:[^"]+)"',likes)
+                self.data['cursor'] = next_page           
+                next_page = self.data.cursor
+
+            else:
+                did_list.append([did,like_count,reply_count,repost_count,uri,cid,hash_tags])    
+        return did_list
+
+#Function to extract did's,cid's,uri's only from the did_list
     
-        match = re.search(pattern,actor_profile)
-        followers_count = match.group(1)
-        follows_count = match.group(2)
+    def extract_attributes(self):
+        dids = []
+        cids =[]
+        uris = []
 
-        actor_list.append(list(zip([did, followers_count,follows_count])))
-        actor_likes.append(list(zip([did, likers]))) 
-        post_likes.append(likes)
-        reposts.append(list(zip([did,repost_dids])))
+        for i in self.did_list:
+            did = i[0]
+            uri = i[4]
+            cid = i[5]
+            dids.append(did)
+            cids.append(cid)
+            uris.append(uri)
 
-        thread_dict = json.loads(thread)
-        #print(thread_dict)
-        if 'thread' in thread_dict:
-            if 'replies' in thread_dict['thread']:
-                for reply in thread_dict['thread']['replies']:
-                    post = reply.get('post')
-                    author = post.get('author')
-                    replier_did = author.get('did')
-                    thread_replies.append(list(zip([did,replier_did])))
+        return dids,cids,uris
+    
+
+#Function to extract the followers and following count of every did
+
+    def followers_and_following(self):
+        actor_list = []
+        actor_likes = []
+        post_likes = []
+        reposts = []
+        thread_replies = []
+
+        conn = http.client.HTTPSConnection("bsky.social")
+        pattern = r'"followersCount":(\d+),"followsCount":(\d+),'
+        for self.did,self.cid,self.uri in zip(self.dids,self.cids,self.uris):
+            payload = ''
+            headers = {
+            'Accept': 'application/json',
+            'Authorization': f'Bearer {jwt}'
+            }
+            conn.request("GET", f"/xrpc/app.bsky.actor.getProfile?actor={self.did}", payload, headers)
+            res1 = conn.getresponse()
+            data1= res1.read()
+            actor_profile = data1.decode("utf-8")
+
+            conn.request("GET", f"/xrpc/app.bsky.feed.getLikes?uri={self.uri}&cid={self.cid}", payload, headers)
+            res2 = conn.getresponse()
+            data2 = res2.read()
+            likes = data2.decode("utf-8")
+            
+            conn.request("GET", f"/xrpc/app.bsky.feed.getRepostedBy?uri={self.uri}", payload, headers)
+            res3 = conn.getresponse()
+            data3 = res3.read()
+            repost = data3.decode("utf-8")
+
+            conn.request("GET", f"/xrpc/app.bsky.feed.getPostThread?uri={self.uri}", payload, headers)
+            res4 = conn.getresponse()
+            data4 = res4.read()
+            thread = data4.decode("utf-8")
+
+            
+            repost_dids = re.findall(r'"did":"(did:plc:[^"]+)"',repost)
+
+            likers = re.findall(r'"did":"(did:plc:[^"]+)"',likes)
         
-    return actor_list, actor_likes, post_likes,reposts,thread_replies
+            match = re.search(pattern,actor_profile)
+            followers_count = match.group(1)
+            follows_count = match.group(2)
 
-actor_list,actor_likes,post_likes,reposts,thread_replies = followers_and_following(dids,cids,uris)
+            actor_list.append(list(zip([self.did, followers_count,follows_count])))
+            actor_likes.append(list(zip([self.did, likers]))) 
+            post_likes.append(likes)
+            reposts.append(list(zip([self.did,repost_dids])))
+
+            thread_dict = json.loads(thread)
+            #print(thread_dict)
+            if 'thread' in thread_dict:
+                if 'replies' in thread_dict['thread']:
+                    for reply in thread_dict['thread']['replies']:
+                        post = reply.get('post')
+                        author = post.get('author')
+                        replier_did = author.get('did')
+                        thread_replies.append(list(zip([self.did,replier_did])))
+            
+        return actor_list, actor_likes, post_likes,reposts,thread_replies
+
+
+
+
+
+# %% 
+
 
 
 
@@ -159,61 +156,72 @@ actor_list,actor_likes,post_likes,reposts,thread_replies = followers_and_followi
 #print(dids)
 #print(actor_list)
 
+
 #%% Building the network:
-
-def build_network(dids,actor_list,actor_likes,reposts,thread_replies):
-    # Create an empty directed graph
-    G = nx.DiGraph()
-
-    # Add nodes for each DID from the feed with follower and following counts
-    for i in range(len(dids)):
-        did = dids[i]
-        if did in actor_list[i][0][0]:
-            followers_count = actor_list[i][1][0]
-            follows_count = actor_list[i][2][0]
-            G.add_node(did, followers_count=followers_count, follows_count=follows_count)
-
-    # Add edges based on likes, reposts, and replies with edge attributes
+class Build():
     
-        if i < len(actor_likes):
-            for liker in actor_likes[i][1][0]:
-                G.add_edge(did, liker, relationship='like')
+    def __init__(self,dids,actor_list,actor_likes,reposts,thread_replies):
+        self.dids = dids
+        self.actor_list = actor_list
+        self.actor_likes = actor_likes
+        self.reposts = reposts
+        self.thread_replies = thread_replies
+        
+    def build_network(self):
+        # Create an empty directed graph
+        G = nx.DiGraph()
 
-        if i < len(reposts):
-            for repost in reposts[i][1][0]:
-                G.add_edge(did, repost, relationship='repost')
+        # Add nodes for each DID from the feed with follower and following counts
+        for i in range(len(self.dids)):
+            did = self.dids[i]
+            if did in self.actor_list[i][0][0]:
+                followers_count = self.ctor_list[i][1][0]
+                follows_count = self.actor_list[i][2][0]
+                G.add_node(did, followers_count=followers_count, follows_count=follows_count)
 
-        if i < len(thread_replies):
-            for thread_reply in thread_replies[i][1][0]:
-                G.add_edge(did, thread_reply, relationship='reply')
+        # Add edges based on likes, reposts, and replies with edge attributes
+        
+            if i < len(self.actor_likes):
+                for liker in self.actor_likes[i][1][0]:
+                    G.add_edge(did, liker, relationship='like')
 
-    return G
-G = build_network(dids,actor_list,actor_likes,reposts,thread_replies)
+            if i < len(self.reposts):
+                for repost in self.reposts[i][1][0]:
+                    G.add_edge(did, repost, relationship='repost')
 
-plt.show()
-nx.write_gml(G, 'graph.gml', stringizer=None)
+            if i < len(self.thread_replies):
+                for thread_reply in self.thread_replies[i][1][0]:
+                    G.add_edge(did, thread_reply, relationship='reply')
 
-#%%
-# Create network card
-card = nc.NetworkCard(G)
-card.update_overall("Name", "BlueSky Network Graph")
-card.update_overall("Nodes are", "People who posted in a community or feed in Bluesky")
-card.update_overall("Links are", "People who interacted with the posts(likes,replies,reposts)")
-card.update_overall("Considerations", "This is an example network or overview of the full network") 
+            plt.show()
+            nx.write_gml(G, 'graph.gml', stringizer=None)
 
-card.update_metainfo({
-    "Node metadata":           "Followers_count, Following_count",
-    "Link metadata":           "like, reply, repost",
-    "Date of creation":        "3/5/2024",
-    "Data generating process": "Extracting the data using the BlueSky API",
-    "Ethics":                   "N/A",
-    "Funding":                 "None",
-    "Citation":                "arXiv:2206.00026",
-    "Access":                   "https://docs.bsky.app/docs/get-started"
-    })
+        return G
+    #G = build_network(dids,actor_list,actor_likes,reposts,thread_replies)
 
-card.to_latex("Bsky_network_card.tex")
-print(card)
+# Function to create a network card
+    
+    def net_card(self,G):
+        # Create network card
+        card = nc.NetworkCard(G)
+        card.update_overall("Name", "BlueSky Network Graph")
+        card.update_overall("Nodes are", "People who posted in a community or feed in Bluesky")
+        card.update_overall("Links are", "People who interacted with the posts(likes,replies,reposts)")
+        card.update_overall("Considerations", "This is an example network or overview of the full network") 
+
+        card.update_metainfo({
+            "Node metadata":           "Followers_count, Following_count",
+            "Link metadata":           "like, reply, repost",
+            "Date of creation":        "3/5/2024",
+            "Data generating process": "Extracting the data using the BlueSky API",
+            "Ethics":                   "N/A",
+            "Funding":                 "None",
+            "Citation":                "arXiv:2206.00026",
+            "Access":                   "https://docs.bsky.app/docs/get-started"
+            })
+
+        card.to_latex("Bsky_network_card.tex")
+        print(card)
 
 
 
