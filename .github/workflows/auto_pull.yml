@@ -16,7 +16,7 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v2
         with:
-          node-version: '14'
+          node-version: '20'
       - name: Pull changes
         run: |
           copy C:\\Users\\Varshney\\Documents\\GitHub\\Statistical-Network-Analysis\\project_data.py .
