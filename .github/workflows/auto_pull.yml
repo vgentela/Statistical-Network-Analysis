@@ -1,11 +1,8 @@
 name: Auto Pull
 
 on:
-  workflow_dispatch:
-  push:
-    paths:
-      - 'C:\\Users\\Varshney\\Documents\\GitHub\\Statistical-Network-Analysis\\project_data.py'
-
+  push
+    
 jobs:
   pull_changes:
     
@@ -17,9 +14,5 @@ jobs:
         uses: actions/checkout@v2
         with:
           node-version: '20'
-      - name: Pull changes
-        run: |
-          copy C:\\Users\\Varshney\\Documents\\GitHub\\Statistical-Network-Analysis\\project_data.py .
-          git add project_data.py
-          git commit -m "Update project_data.py"
-          git push
+      - name: test changes
+        run: python -c "test.py"
