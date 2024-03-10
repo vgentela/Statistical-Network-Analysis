@@ -13,128 +13,152 @@ from pyvis.network import Network
 
 
 #%% Looping using feed generator to extract like_count,reply_count,repost_count,hash_tags for every did
-class UserData():
-    
-    
-    def __init__(self,data,username,password):
-        client = Client(base_url='https://bsky.social/xrpc')
-        self.data = data
+
+class Login():
+
+    def __init__(self,username,password) :
+
+        self.client = Client(base_url='https://bsky.social/xrpc')
+
         self.username = username
         self.password = password
-        ab = client.login(input('username'), input('password'))
-
-        jwt = client._access_jwt
-
-        self.extract_did_list()
-        self.extract_attributes()
-
-
-    def extract_did_list(self):
-        did_list = []   
         
-        next_page = self.data.cursor
 
-        for post in self.data.feed:
-            post_str = str(post)
-            like_count = re.search(r"like_count=(\d+)", post_str).group(1)
-            reply_count = re.search(r"reply_count=(\d+)", post_str).group(1)
-            repost_count = re.search(r"repost_count=(\d+)", post_str).group(1)
-            hash_tags = re.findall(r"tag='([^']+)'", post_str)
-            did = re.search(r"did='(.*?)'", post_str).group(1)
-            uri = re.search(r"uri='(at://[^']+)'", post_str).group(1)
-            cid = re.search(r"cid='([^']+)'",post_str).group(1)
-            #print(post)
-            if next_page is not None:
+        try:
         
-                did_list.append([did,like_count,reply_count,repost_count,uri,cid,hash_tags])
+            self.ab = self.client.login(self.username, self.password)
+            self.jwt = self.client._access_jwt
+        except Exception as e:
+            print(f"Error:{e}")
 
-                self.data['cursor'] = next_page           
-                next_page = self.data.cursor
+        self.output_client()
 
-            else:
-                did_list.append([did,like_count,reply_count,repost_count,uri,cid,hash_tags])    
-        return did_list
-
-#Function to extract did's,cid's,uri's only from the did_list
+    def output_client(self):
+        return self.client
     
-    def extract_attributes(self):
-        dids = []
-        cids =[]
-        uris = []
-
-        for i in self.did_list:
-            did = i[0]
-            uri = i[4]
-            cid = i[5]
-            dids.append(did)
-            cids.append(cid)
-            uris.append(uri)
-
-        return dids,cids,uris
-    
-
-#Function to extract the followers and following count of every did
-
-    def followers_and_following(self):
-        actor_list = []
-        actor_likes = []
-        post_likes = []
-        reposts = []
-        thread_replies = []
-
-        conn = http.client.HTTPSConnection("bsky.social")
-        pattern = r'"followersCount":(\d+),"followsCount":(\d+),'
-        for self.did,self.cid,self.uri in zip(self.dids,self.cids,self.uris):
-            payload = ''
-            headers = {
-            'Accept': 'application/json',
-            'Authorization': f'Bearer {jwt}'
-            }
-            conn.request("GET", f"/xrpc/app.bsky.actor.getProfile?actor={self.did}", payload, headers)
-            res1 = conn.getresponse()
-            data1= res1.read()
-            actor_profile = data1.decode("utf-8")
-
-            conn.request("GET", f"/xrpc/app.bsky.feed.getLikes?uri={self.uri}&cid={self.cid}", payload, headers)
-            res2 = conn.getresponse()
-            data2 = res2.read()
-            likes = data2.decode("utf-8")
-            
-            conn.request("GET", f"/xrpc/app.bsky.feed.getRepostedBy?uri={self.uri}", payload, headers)
-            res3 = conn.getresponse()
-            data3 = res3.read()
-            repost = data3.decode("utf-8")
-
-            conn.request("GET", f"/xrpc/app.bsky.feed.getPostThread?uri={self.uri}", payload, headers)
-            res4 = conn.getresponse()
-            data4 = res4.read()
-            thread = data4.decode("utf-8")
-
-            
-            repost_dids = re.findall(r'"did":"(did:plc:[^"]+)"',repost)
-
-            likers = re.findall(r'"did":"(did:plc:[^"]+)"',likes)
+    class UserData():
         
-            match = re.search(pattern,actor_profile)
-            followers_count = match.group(1)
-            follows_count = match.group(2)
-
-            actor_list.append(list(zip([self.did, followers_count,follows_count])))
-            actor_likes.append(list(zip([self.did, likers]))) 
-            post_likes.append(likes)
-            reposts.append(list(zip([self.did,repost_dids])))
-
-            thread_dict = json.loads(thread)
-            #print(thread_dict)
-            if 'thread' in thread_dict:
-                if 'replies' in thread_dict['thread']:
-                    for reply in thread_dict['thread']['replies']:
-                        post = reply.get('post')
-                        author = post.get('author')
-                        replier_did = author.get('did')
-                        thread_replies.append(list(zip([self.did,replier_did])))
+        def __init__(self,data,client):
             
-        return actor_list, actor_likes, post_likes,reposts,thread_replies
+            
+
+            self.data = data
+            self.client = client
+
+            
+            self.extract_did_list()
+            self.extract_attributes()
+
+
+        def extract_did_list(self):
+            did_list = []   
+            data = self.data
+            next_page = data.cursor
+
+            for post in data.feed:
+                post_str = str(post)
+                like_count = re.search(r"like_count=(\d+)", post_str).group(1)
+                reply_count = re.search(r"reply_count=(\d+)", post_str).group(1)
+                repost_count = re.search(r"repost_count=(\d+)", post_str).group(1)
+                hash_tags = re.findall(r"tag='([^']+)'", post_str)
+                did = re.search(r"did='(.*?)'", post_str).group(1)
+                uri = re.search(r"uri='(at://[^']+)'", post_str).group(1)
+                cid = re.search(r"cid='([^']+)'",post_str).group(1)
+                #print(post)
+                if next_page is not None:
+            
+                    did_list.append([did,like_count,reply_count,repost_count,uri,cid,hash_tags])
+
+                    data['cursor'] = next_page           
+                    next_page = data.cursor
+
+                else:
+                    did_list.append([did,like_count,reply_count,repost_count,uri,cid,hash_tags])    
+            return did_list
+
+    #Function to extract did's,cid's,uri's only from the did_list
+        
+        def extract_attributes(self,did_list):
+            dids = []
+            cids =[]
+            uris = []
+
+
+            for i in did_list:
+                did = i[0]
+                uri = i[4]
+                cid = i[5]
+                dids.append(did)
+                cids.append(cid)
+                uris.append(uri)
+
+            return dids,cids,uris
+        
+
+    #Function to extract the followers and following count of every did
+
+        def followers_and_following(self,jwt,dids,cids,uris):
+            actor_list = []
+            actor_likes = []
+            post_likes = []
+            reposts = []
+            thread_replies = []
+
+            jwt = self.jwt
+
+            conn = http.client.HTTPSConnection("bsky.social")
+            pattern = r'"followersCount":(\d+),"followsCount":(\d+),'
+            for did,cid,uri in zip(dids,cids,uris):
+                payload = ''
+                headers = {
+                'Accept': 'application/json',
+                'Authorization': f'Bearer {jwt}'
+                }
+                conn.request("GET", f"/xrpc/app.bsky.actor.getProfile?actor={did}", payload, headers)
+                res1 = conn.getresponse()
+                data1= res1.read()
+                actor_profile = data1.decode("utf-8")
+
+                conn.request("GET", f"/xrpc/app.bsky.feed.getLikes?uri={uri}&cid={cid}", payload, headers)
+                res2 = conn.getresponse()
+                data2 = res2.read()
+                likes = data2.decode("utf-8")
+                
+                conn.request("GET", f"/xrpc/app.bsky.feed.getRepostedBy?uri={uri}", payload, headers)
+                res3 = conn.getresponse()
+                data3 = res3.read()
+                repost = data3.decode("utf-8")
+
+                conn.request("GET", f"/xrpc/app.bsky.feed.getPostThread?uri={uri}", payload, headers)
+                res4 = conn.getresponse()
+                data4 = res4.read()
+                thread = data4.decode("utf-8")
+
+                
+                repost_dids = re.findall(r'"did":"(did:plc:[^"]+)"',repost)
+
+                likers = re.findall(r'"did":"(did:plc:[^"]+)"',likes)
+            
+                match = re.search(pattern,actor_profile)
+                followers_count = match.group(1)
+                follows_count = match.group(2)
+
+                actor_list.append(list(zip([did, followers_count,follows_count])))
+                actor_likes.append(list(zip([did, likers]))) 
+                post_likes.append(likes)
+                reposts.append(list(zip([did,repost_dids])))
+
+                thread_dict = json.loads(thread)
+                #print(thread_dict)
+                if 'thread' in thread_dict:
+                    if 'replies' in thread_dict['thread']:
+                        for reply in thread_dict['thread']['replies']:
+                            post = reply.get('post')
+                            author = post.get('author')
+                            replier_did = author.get('did')
+                            thread_replies.append(list(zip([did,replier_did])))
+                
+            return actor_list, actor_likes, post_likes,reposts,thread_replies
 
 
 
