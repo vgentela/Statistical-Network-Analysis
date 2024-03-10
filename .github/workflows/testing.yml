@@ -4,7 +4,7 @@ on:
   push
     
 jobs:
-  pull_changes:
+  test_changes:
     
     runs-on: windows-latest
     
@@ -15,4 +15,4 @@ jobs:
         with:
           node-version: '20'
       - name: test changes
-        run: python -c "test.py"
+        run: python .test.py
