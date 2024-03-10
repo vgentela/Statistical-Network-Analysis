@@ -1,0 +1,17 @@
+# This workflow is triggered over certain period of time intervals
+
+name: auto_pull
+
+on:
+  schedule:
+    - cron: '* 3/5 * * *'
+
+jobs:
+  auto_pull:
+    runs-on: windows-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v2
+
+      - name: Run automation
+        run: python automation.py
