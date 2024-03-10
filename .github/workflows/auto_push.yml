@@ -10,8 +10,8 @@ jobs:
   auto_pull:
     runs-on: windows-latest
     steps:
-      - name: Checkout code
-        uses: actions/checkout@v2
-
-      - name: Run automation
-        run: python automation.py
+        - uses: actions/checkout@v2
+        - uses: actions/setup-python@v2
+        
+        - name: Run automation
+          run: python automation.py
