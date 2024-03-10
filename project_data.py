@@ -9,19 +9,21 @@ import networkx as nx
 import network_cards as nc
 import matplotlib.pyplot as plt
 from pyvis.network import Network
-#%%
-client = Client(base_url='https://bsky.social/xrpc')
-ab = client.login('t0st.bsky.social', 'Val124#$')
 
-jwt = client._access_jwt
-print(jwt)
 
 
 #%% Looping using feed generator to extract like_count,reply_count,repost_count,hash_tags for every did
 class UserData():
-
-    def __init__(self,data):
+    
+    
+    def __init__(self,data,username,password):
+        client = Client(base_url='https://bsky.social/xrpc')
         self.data = data
+        self.username = username
+        self.password = password
+        ab = client.login(input('username'), input('password'))
+
+        jwt = client._access_jwt
 
         self.extract_did_list()
         self.extract_attributes()
@@ -178,7 +180,7 @@ class Build():
                 followers_count = self.ctor_list[i][1][0]
                 follows_count = self.actor_list[i][2][0]
                 G.add_node(did, followers_count=followers_count, follows_count=follows_count)
-
+                print(did)
         # Add edges based on likes, reposts, and replies with edge attributes
         
             if i < len(self.actor_likes):
