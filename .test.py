@@ -14,3 +14,5 @@ actor_list,actor_likes,post_likes,reposts,thread_replies = user_data.followers_a
 # %%
 print(actor_list[0])
 # %%
+build_network = Build(actor_list,actor_likes,post_likes,reposts,thread_replies)
+G = build_network.build_network()

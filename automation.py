@@ -3,7 +3,7 @@ import subprocess
 import time
 
 # Define the path to your local repository
-repo_path = 'C:\\Users\\Varshney\\Documents\\GitHub\\Statistical-Network-Analysis'
+repo_path = 'C://Users/Varshney/Documents/GitHub/Statistical-Network-Analysis'
 
 # Set up the Git configuration
 os.chdir(repo_path)
