@@ -318,7 +318,8 @@ class Firehose():
 
             car = CAR.from_bytes(commit.blocks)
             self.car_blocks.append(car)
-
+            print(self.car_blocks[0])
+            
         def _stop_after_n_sec() -> None:
             time.sleep(_STOP_AFTER_SECONDS)
             self.client.stop()
