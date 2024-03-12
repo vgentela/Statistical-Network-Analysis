@@ -8,8 +8,9 @@ import json
 import networkx as nx
 import network_cards as nc
 import matplotlib.pyplot as plt
-from pyvis.network import Network
-
+import threading
+import time
+from atproto import FirehoseSubscribeReposClient, firehose_models, parse_subscribe_repos_message
 
 
 #%% Looping using feed generator to extract like_count,reply_count,repost_count,hash_tags for every did
@@ -34,21 +35,18 @@ class Login():
         self.output_client()
 
     def output_client(self):
-        return self.client
+        return self.client,self.jwt
     
     class UserData():
         
-        def __init__(self,data,client):
+        def __init__(self,data,client,jwt):
             
             
 
             self.data = data
             self.client = client
-
+            self.jwt = jwt
             
-            self.extract_did_list()
-            self.extract_attributes()
-
 
         def extract_did_list(self):
             did_list = []   
@@ -78,11 +76,12 @@ class Login():
 
     #Function to extract did's,cid's,uri's only from the did_list
         
-        def extract_attributes(self,did_list):
+        def extract_attributes(self):
             dids = []
             cids =[]
             uris = []
 
+            did_list = self.extract_did_list()
 
             for i in did_list:
                 did = i[0]
@@ -97,7 +96,10 @@ class Login():
 
     #Function to extract the followers and following count of every did
 
-        def followers_and_following(self,jwt,dids,cids,uris):
+        def followers_and_following(self):
+
+            dids,cids,uris = self.extract_attributes()
+
             actor_list = []
             actor_likes = []
             post_likes = []
@@ -158,13 +160,7 @@ class Login():
                             replier_did = author.get('did')
                             thread_replies.append(list(zip([did,replier_did])))
                 
-            return actor_list, actor_likes, post_likes,reposts,thread_replies
-
-
-
-
-
-# %% 
+            return actor_list, actor_likes, post_likes,reposts,thread_replies,dids
 
 
 
@@ -201,7 +197,7 @@ class Build():
         for i in range(len(self.dids)):
             did = self.dids[i]
             if did in self.actor_list[i][0][0]:
-                followers_count = self.ctor_list[i][1][0]
+                followers_count = self.actor_list[i][1][0]
                 follows_count = self.actor_list[i][2][0]
                 G.add_node(did, followers_count=followers_count, follows_count=follows_count)
                 print(did)
@@ -303,4 +299,30 @@ edges to the did's in the actor_likes list will carry the like attribute.
 
 """
 
+#%% Building the Firehose
 
+class Firehose():
+
+    def __init__(self) -> None:
+
+        _STOP_AFTER_SECONDS = 3
+
+        self.client = FirehoseSubscribeReposClient()
+
+
+        def on_message_handler(message: firehose_models.MessageFrame) -> None:
+            print(message.header, parse_subscribe_repos_message(message))
+
+
+        def _stop_after_n_sec() -> None:
+            time.sleep(_STOP_AFTER_SECONDS)
+            self.client.stop()
+
+
+        # run our sleep functions in another thread
+        threading.Thread(target=_stop_after_n_sec).start()
+
+        # run the client for N seconds
+        self.client.start(on_message_handler)
+
+        print(f'Successfully stopped after {_STOP_AFTER_SECONDS} seconds!')

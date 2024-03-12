@@ -7,8 +7,8 @@ repo_path = 'C://Users/Varshney/Documents/GitHub/Statistical-Network-Analysis'
 
 # Set up the Git configuration
 os.chdir(repo_path)
-subprocess.run(['git', 'config', 'user.email', input('Enter your email')])
-subprocess.run(['git', 'config', 'user.name', input('Enter Your Name')])
+subprocess.run(['git', 'config', 'user.email', 'vgentela@uvm.edu'])
+subprocess.run(['git', 'config', 'user.name', 'vgentela'])
 
 # Loop indefinitely and check for changes every minute
 while True:
