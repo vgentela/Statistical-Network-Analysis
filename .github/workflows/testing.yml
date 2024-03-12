@@ -12,7 +12,8 @@ jobs:
     steps:
       - name: Checkout code
       - uses: actions/checkout@v4
-      - uses: actions/setup-python@v4
+      
       
       - name: test changes
-        run: python .test.py
+      - uses: actions/setup-python@v4
+      - run: python .test.py
