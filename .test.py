@@ -3,7 +3,7 @@ from project_data import *
 
 #%%
 
-login = Login(username = input('username:'),password = input('password:'))
+login = Login(username = 't0st.bsky.social',password = 'Val124#$')
 client,jwt = login.output_client()
 user_data= login.UserData(client = client, data=client.app.bsky.feed.get_feed({
     'feed': 'at://did:plc:nylio5rpw7u3wtven3vcriam/app.bsky.feed.generator/aaai4amp77qp6',
