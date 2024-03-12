@@ -18,3 +18,4 @@ build_network = Build(dids,actor_list,actor_likes,reposts,thread_replies)
 G = build_network.build_network()
 # %%
 fire = Firehose()
+fire.car_blocks[0:3]
