@@ -11,7 +11,7 @@ import matplotlib.pyplot as plt
 import threading
 import time
 from atproto import FirehoseSubscribeReposClient, firehose_models, parse_subscribe_repos_message
-
+from atproto import CAR, models
 
 #%% Looping using feed generator to extract like_count,reply_count,repost_count,hash_tags for every did
 
@@ -309,10 +309,15 @@ class Firehose():
 
         self.client = FirehoseSubscribeReposClient()
 
+        self.car_blocks = []
+        def on_message_handler(message) -> None:
+            commit = parse_subscribe_repos_message(message)
+            # we need to be sure that it's commit message with .blocks inside
+            if not isinstance(commit, models.ComAtprotoSyncSubscribeRepos.Commit):
+                return
 
-        def on_message_handler(message: firehose_models.MessageFrame) -> None:
-            print(message.header, parse_subscribe_repos_message(message))
-
+            car = CAR.from_bytes(commit.blocks)
+            self.car_blocks.append(car)
 
         def _stop_after_n_sec() -> None:
             time.sleep(_STOP_AFTER_SECONDS)
