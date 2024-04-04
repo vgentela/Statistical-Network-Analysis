@@ -100,7 +100,7 @@ class Login():
         
 
     #Function to extract the followers and following count of every did
-
+    # Instead of using this function, try using get_profile function in the BlueSky API
         def followers_and_following(self):
 
             dids,cids,uris = self.extract_attributes()
