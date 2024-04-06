@@ -10,13 +10,13 @@ import pandas as pd
 import atproto_core
 from atproto import Client
 from atproto import CAR, models ,AtUri
-#from atproto import atproto_core
 from atproto import FirehoseSubscribeReposClient, firehose_models, parse_subscribe_repos_message
 import json
 import networkx as nx
 import network_cards as nc
 import matplotlib.pyplot as plt
 from pyvis.network import Network
+import queue
 
 #%% Looping using feed generator to extract like_count,reply_count,repost_count,hash_tags for every did
 
@@ -304,83 +304,23 @@ edges to the did's in the actor_likes list will carry the like attribute.
 
 """
 
-#%% Building the Firehose
+#%%Firehose
 
+#self._STOP_AFTER_SECONDS = 3
 class Firehose():
-
-    def __init__(self,queue_size,params=None,cursor_value =None,) -> None:
-
-        
-        start_cursor = cursor_value
-
-        params = None
-        self.params = params
-        cursor = multiprocessing.Value('i', 0)
-        self.cursor = cursor
-        if start_cursor is not None:
-            cursor = multiprocessing.Value('i', start_cursor)
-            self.cursor = cursor
-            params = self.get_firehose_params(cursor)
-            self.params = params
-
-        #self._STOP_AFTER_SECONDS = 3
-        
-        workers_count = multiprocessing.cpu_count() * 2 - 1
-        queue = multiprocessing.Queue(maxsize=queue_size)
-        self.queue = queue
-        pool = multiprocessing.Pool(workers_count,self.worker_main, (cursor, queue))
-        self.client = FirehoseSubscribeReposClient(params)
-        
-        #self.car_blocks = []
-        
-
-        #threading.Thread(target=self._stop_after_n_sec).start()
-
-        # run the client for N seconds
-        self.client.start(self.on_message_handler)
-
-        print(f'Successfully stopped after {self._STOP_AFTER_SECONDS} seconds!')
-        self.net = []
-    def worker_main(self,cursor_value: multiprocessing.Value, pool_queue: multiprocessing.Queue) -> None:
-        while True:
-            message = pool_queue.get()
-
-            commit = parse_subscribe_repos_message(message)
-            if not isinstance(commit, models.ComAtprotoSyncSubscribeRepos.Commit):
-                continue
-            if commit.time == '2023-04-01T22:38:30':
-                self.client.stop()
-                
-            if commit.seq % 10000 == 0:
-                cursor_value.value = commit.seq
-
-            if not commit.blocks:           
-                continue
-            
-            
-            ops = self._get_ops_by_type(commit)
-            
-            for post in ops['posts']['created']:
-                post_msg = post['record'].text
-                post_langs = post['record'].langs
-                print(f'New post in the network! Langs: {post_langs}. Text: {post_msg}')
-            self.net.append(ops)
-
-    def get_firehose_params(self,cursor_value: multiprocessing.Value) -> models.ComAtprotoSyncSubscribeRepos.Params:
-        return models.ComAtprotoSyncSubscribeRepos.Params(cursor=cursor_value.value)
-
-    def on_message_handler(self,message: firehose_models.MessageFrame) -> None:
-        if self.cursor.value:
-            # we are using updating the cursor state here because of multiprocessing
-            # typically you can call client.update_params() directly on commit processing
-            self.client.update_params(self.get_firehose_params(self.cursor))
-
-        self.queue.put(message)
-        
-    def _stop_after_n_sec(self) -> None:
-        time.sleep(self._STOP_AFTER_SECONDS)
-        self.client.stop()
     
+    def __init__(self):
+        
+        cursor = 2343598409
+        params = self.get_firehose_params(cursor)
+        client_f = FirehoseSubscribeReposClient(params)
+        self.client_f = client_f
+        q = queue.Queue()
+        self.q = q
+        self.dfs = []
+        threading.Thread(target = self.worker).start()  
+        self.client_f.start(self.on_message_handler)
+        
     def _get_ops_by_type(self,commit: models.ComAtprotoSyncSubscribeRepos.Commit) -> dict:  # noqa: C901
         operation_by_type = {
             'posts': {'created': [], 'deleted': []},
@@ -388,26 +328,28 @@ class Firehose():
             'likes': {'created': [], 'deleted': []},
             'follows': {'created': [], 'deleted': []},
         }
-
+    
         car = CAR.from_bytes(commit.blocks)
         for op in commit.ops:
+            #print(op)
             uri = AtUri.from_str(f'at://{commit.repo}/{op.path}')
-
+    
             if op.action == 'update':
                 # not supported yet
                 continue
-
+    
             if op.action == 'create':
                 if not op.cid:
                     continue
-
-                create_info = {'uri': str(uri), 'cid': str(op.cid), 'author': commit.repo}
-
+    
+                
+    
                 record_raw_data = car.blocks.get(op.cid)
                 if not record_raw_data:
                     continue
-
+    
                 record = models.get_or_create(record_raw_data, strict=False)
+                create_info = {'uri': str(uri), 'cid': str(op.cid), 'author': commit.repo}
                 if uri.collection == models.ids.AppBskyFeedLike and models.is_record_type(
                     record, models.ids.AppBskyFeedLike
                 ):
@@ -424,7 +366,7 @@ class Firehose():
                     record, models.ids.AppBskyGraphFollow
                 ):
                     operation_by_type['follows']['created'].append({'record': record, **create_info})
-
+    
             if op.action == 'delete':
                 if uri.collection == models.ids.AppBskyFeedLike:
                     operation_by_type['likes']['deleted'].append({'uri': str(uri)})
@@ -434,25 +376,70 @@ class Firehose():
                     operation_by_type['reposts']['deleted'].append({'uri': str(uri)})
                 elif uri.collection == models.ids.AppBskyGraphFollow:
                     operation_by_type['follows']['deleted'].append({'uri': str(uri)})
-
+    
         return operation_by_type
+
+
+    def get_firehose_params(self,cursor_value) -> models.ComAtprotoSyncSubscribeRepos.Params:
+        return models.ComAtprotoSyncSubscribeRepos.Params(cursor_value = cursor_value)
+    
+
+
+
+    # store all unique repo's in a list for a period of a year.
+    #For repo in repo_list extract all records from that rep
+    
+        #threading.Thread(target = client_stop(secs)).start()
+        
+
+   # we need to be sure that it's commit message with .blocks inside
+ 
+    #decoded_message = atproto_core.cbor.decode_dag_multi(commit)
+    #print(car.root,car.blocks.items())
+    #print("-------------------------------------------------------------------------")
+
+
+    def worker(self) -> None:
+        
+        while True:
+            message = self.q.get()
+            
+            if not isinstance(message, firehose_models.MessageFrame):
+                continue
+            try:
+                commit = parse_subscribe_repos_message(message)
+            except KeyError:
+                continue
+            
+            if not isinstance(commit, models.ComAtprotoSyncSubscribeRepos.Commit):
+                continue
+            
+            ops = self._get_ops_by_type(commit)
+            
+            for post in ops['posts']['created']:
+                post_msg = post['record'].text
+                post_langs = post['record'].langs
+              
+                print(f'New post in the network! Langs: {post_langs}, Text: {post_msg}')
+            
+                if commit.time =='2024-04-06T17:37:380Z':
+                    self.client_f.stop()
+                    print(f'Successfully stopped after dialing back to {commit.time} day!')
+                    break
+            cursor = commit.seq - 1000000
+            self.client_f.update_params(self.get_firehose_params(cursor))
+            
+            self.dfs.append(ops)
      
-        
-        
-        
+    def on_message_handler(self,message: firehose_models.MessageFrame) -> None:
+       
+        self.q.put(message)
+            
+        #cursors.append(cursor)   
+        #mess.append(message)
+    
 
 
-
-
-max_queue_size = 500
-
-fh = Firehose(queue_size=max_queue_size)
-
-
-
-
-        
-#%% Firehose 1 
 
 
 
