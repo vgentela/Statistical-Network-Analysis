@@ -308,145 +308,151 @@ edges to the did's in the actor_likes list will carry the like attribute.
 
 class Firehose():
 
-    def __init__(self) -> None:
+    def __init__(self,queue_size,params=None,cursor_value =None,) -> None:
 
-        _STOP_AFTER_SECONDS = 3
+        
+        start_cursor = cursor_value
 
-        self.client = FirehoseSubscribeReposClient()
+        params = None
+        self.params = params
+        cursor = multiprocessing.Value('i', 0)
+        self.cursor = cursor
+        if start_cursor is not None:
+            cursor = multiprocessing.Value('i', start_cursor)
+            self.cursor = cursor
+            params = self.get_firehose_params(cursor)
+            self.params = params
 
-        self.car_blocks = []
-        def on_message_handler(message) -> None:
-            commit = parse_subscribe_repos_message(message)
-            # we need to be sure that it's commit message with .blocks inside
-            if not isinstance(commit, models.ComAtprotoSyncSubscribeRepos.Commit):
-                return
+        #self._STOP_AFTER_SECONDS = 3
+        
+        workers_count = multiprocessing.cpu_count() * 2 - 1
+        queue = multiprocessing.Queue(maxsize=queue_size)
+        self.queue = queue
+        pool = multiprocessing.Pool(workers_count,self.worker_main, (cursor, queue))
+        self.client = FirehoseSubscribeReposClient(params)
+        
+        #self.car_blocks = []
+        
 
-            car = CAR.from_bytes(commit.blocks)
-            self.car_blocks.append(car)
-            print(self.car_blocks[0])
-            
-        def _stop_after_n_sec() -> None:
-            time.sleep(_STOP_AFTER_SECONDS)
-            self.client.stop()
-
-
-        # run our sleep functions in another thread
-        threading.Thread(target=_stop_after_n_sec).start()
+        #threading.Thread(target=self._stop_after_n_sec).start()
 
         # run the client for N seconds
-        self.client.start(on_message_handler)
+        self.client.start(self.on_message_handler)
 
-        print(f'Successfully stopped after {_STOP_AFTER_SECONDS} seconds!')
-#%% Firehose 1 
-def _get_ops_by_type(commit: models.ComAtprotoSyncSubscribeRepos.Commit) -> dict:  # noqa: C901
-    operation_by_type = {
-        'posts': {'created': [], 'deleted': []},
-        'reposts': {'created': [], 'deleted': []},
-        'likes': {'created': [], 'deleted': []},
-        'follows': {'created': [], 'deleted': []},
-    }
+        print(f'Successfully stopped after {self._STOP_AFTER_SECONDS} seconds!')
+        self.net = []
+    def worker_main(self,cursor_value: multiprocessing.Value, pool_queue: multiprocessing.Queue) -> None:
+        while True:
+            message = pool_queue.get()
 
-    car = CAR.from_bytes(commit.blocks)
-    for op in commit.ops:
-        uri = AtUri.from_str(f'at://{commit.repo}/{op.path}')
-
-        if op.action == 'update':
-            # not supported yet
-            continue
-
-        if op.action == 'create':
-            if not op.cid:
+            commit = parse_subscribe_repos_message(message)
+            if not isinstance(commit, models.ComAtprotoSyncSubscribeRepos.Commit):
                 continue
+            if commit.time == '2023-04-01T22:38:30':
+                self.client.stop()
+                
+            if commit.seq % 10000 == 0:
+                cursor_value.value = commit.seq
 
-            create_info = {'uri': str(uri), 'cid': str(op.cid), 'author': commit.repo}
-
-            record_raw_data = car.blocks.get(op.cid)
-            if not record_raw_data:
+            if not commit.blocks:           
                 continue
-
-            record = models.get_or_create(record_raw_data, strict=False)
-            if uri.collection == models.ids.AppBskyFeedLike and models.is_record_type(
-                record, models.ids.AppBskyFeedLike
-            ):
-                operation_by_type['likes']['created'].append({'record': record, **create_info})
-            elif uri.collection == models.ids.AppBskyFeedPost and models.is_record_type(
-                record, models.ids.AppBskyFeedPost
-            ):
-                operation_by_type['posts']['created'].append({'record': record, **create_info})
-            elif uri.collection == models.ids.AppBskyFeedRepost and models.is_record_type(
-                record, models.ids.AppBskyFeedRepost
-            ):
-                operation_by_type['reposts']['created'].append({'record': record, **create_info})
-            elif uri.collection == models.ids.AppBskyGraphFollow and models.is_record_type(
-                record, models.ids.AppBskyGraphFollow
-            ):
-                operation_by_type['follows']['created'].append({'record': record, **create_info})
-
-        if op.action == 'delete':
-            if uri.collection == models.ids.AppBskyFeedLike:
-                operation_by_type['likes']['deleted'].append({'uri': str(uri)})
-            elif uri.collection == models.ids.AppBskyFeedPost:
-                operation_by_type['posts']['deleted'].append({'uri': str(uri)})
-            elif uri.collection == models.ids.AppBskyFeedRepost:
-                operation_by_type['reposts']['deleted'].append({'uri': str(uri)})
-            elif uri.collection == models.ids.AppBskyGraphFollow:
-                operation_by_type['follows']['deleted'].append({'uri': str(uri)})
-
-    return operation_by_type
-
-
-def worker_main(cursor_value: multiprocessing.Value, pool_queue: multiprocessing.Queue) -> None:
-    while True:
-        message = pool_queue.get()
-
-        commit = parse_subscribe_repos_message(message)
-        if not isinstance(commit, models.ComAtprotoSyncSubscribeRepos.Commit):
-            continue
-        if commit.time == '2023-04-01T22:38:30':
-            client.stop()
             
-        if commit.seq % 10000 == 0:
-            cursor_value.value = commit.seq
+            
+            ops = self._get_ops_by_type(commit)
+            
+            for post in ops['posts']['created']:
+                post_msg = post['record'].text
+                post_langs = post['record'].langs
+                print(f'New post in the network! Langs: {post_langs}. Text: {post_msg}')
+            self.net.append(ops)
 
-        if not commit.blocks:           
-            continue
+    def get_firehose_params(self,cursor_value: multiprocessing.Value) -> models.ComAtprotoSyncSubscribeRepos.Params:
+        return models.ComAtprotoSyncSubscribeRepos.Params(cursor=cursor_value.value)
+
+    def on_message_handler(self,message: firehose_models.MessageFrame) -> None:
+        if self.cursor.value:
+            # we are using updating the cursor state here because of multiprocessing
+            # typically you can call client.update_params() directly on commit processing
+            self.client.update_params(self.get_firehose_params(self.cursor))
+
+        self.queue.put(message)
+        
+    def _stop_after_n_sec(self) -> None:
+        time.sleep(self._STOP_AFTER_SECONDS)
+        self.client.stop()
+    
+    def _get_ops_by_type(self,commit: models.ComAtprotoSyncSubscribeRepos.Commit) -> dict:  # noqa: C901
+        operation_by_type = {
+            'posts': {'created': [], 'deleted': []},
+            'reposts': {'created': [], 'deleted': []},
+            'likes': {'created': [], 'deleted': []},
+            'follows': {'created': [], 'deleted': []},
+        }
+
+        car = CAR.from_bytes(commit.blocks)
+        for op in commit.ops:
+            uri = AtUri.from_str(f'at://{commit.repo}/{op.path}')
+
+            if op.action == 'update':
+                # not supported yet
+                continue
+
+            if op.action == 'create':
+                if not op.cid:
+                    continue
+
+                create_info = {'uri': str(uri), 'cid': str(op.cid), 'author': commit.repo}
+
+                record_raw_data = car.blocks.get(op.cid)
+                if not record_raw_data:
+                    continue
+
+                record = models.get_or_create(record_raw_data, strict=False)
+                if uri.collection == models.ids.AppBskyFeedLike and models.is_record_type(
+                    record, models.ids.AppBskyFeedLike
+                ):
+                    operation_by_type['likes']['created'].append({'record': record, **create_info})
+                elif uri.collection == models.ids.AppBskyFeedPost and models.is_record_type(
+                    record, models.ids.AppBskyFeedPost
+                ):
+                    operation_by_type['posts']['created'].append({'record': record, **create_info})
+                elif uri.collection == models.ids.AppBskyFeedRepost and models.is_record_type(
+                    record, models.ids.AppBskyFeedRepost
+                ):
+                    operation_by_type['reposts']['created'].append({'record': record, **create_info})
+                elif uri.collection == models.ids.AppBskyGraphFollow and models.is_record_type(
+                    record, models.ids.AppBskyGraphFollow
+                ):
+                    operation_by_type['follows']['created'].append({'record': record, **create_info})
+
+            if op.action == 'delete':
+                if uri.collection == models.ids.AppBskyFeedLike:
+                    operation_by_type['likes']['deleted'].append({'uri': str(uri)})
+                elif uri.collection == models.ids.AppBskyFeedPost:
+                    operation_by_type['posts']['deleted'].append({'uri': str(uri)})
+                elif uri.collection == models.ids.AppBskyFeedRepost:
+                    operation_by_type['reposts']['deleted'].append({'uri': str(uri)})
+                elif uri.collection == models.ids.AppBskyGraphFollow:
+                    operation_by_type['follows']['deleted'].append({'uri': str(uri)})
+
+        return operation_by_type
+     
         
         
-        ops = _get_ops_by_type(commit)
         
-        for post in ops['posts']['created']:
-            post_msg = post['record'].text
-            post_langs = post['record'].langs
-            print(f'New post in the network! Langs: {post_langs}. Text: {post_msg}')
-    return ops
-
-def get_firehose_params(cursor_value: multiprocessing.Value) -> models.ComAtprotoSyncSubscribeRepos.Params:
-    return models.ComAtprotoSyncSubscribeRepos.Params(cursor=cursor_value.value)
 
 
 
-start_cursor = None
 
-params = None
-cursor = multiprocessing.Value('i', 0)
-if start_cursor is not None:
-    cursor = multiprocessing.Value('i', start_cursor)
-    params = get_firehose_params(cursor)
-
-client = FirehoseSubscribeReposClient(params)
-
-workers_count = multiprocessing.cpu_count() * 2 - 1
 max_queue_size = 500
 
-queue = multiprocessing.Queue(maxsize=max_queue_size)
-pool = multiprocessing.Pool(workers_count, worker_main, (cursor, queue))
+fh = Firehose(queue_size=max_queue_size)
 
-def on_message_handler(message: firehose_models.MessageFrame) -> None:
-    if cursor.value:
-        # we are using updating the cursor state here because of multiprocessing
-        # typically you can call client.update_params() directly on commit processing
-        client.update_params(get_firehose_params(cursor))
 
-    queue.put(message)
 
-client.start(on_message_handler)
+
+        
+#%% Firehose 1 
+
+
+
