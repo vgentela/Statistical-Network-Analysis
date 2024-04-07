@@ -305,13 +305,13 @@ edges to the did's in the actor_likes list will carry the like attribute.
 """
 
 #%%Firehose
+#%% Firehose V2
 
-#self._STOP_AFTER_SECONDS = 3
 class Firehose():
     
     def __init__(self):
         
-        cursor = 2343598409
+        cursor = 0
         params = self.get_firehose_params(cursor)
         client_f = FirehoseSubscribeReposClient(params)
         self.client_f = client_f
@@ -400,19 +400,19 @@ class Firehose():
 
 
     def worker(self) -> None:
-        
+      
         while True:
             message = self.q.get()
             
             if not isinstance(message, firehose_models.MessageFrame):
-                continue
+                return
             try:
                 commit = parse_subscribe_repos_message(message)
             except KeyError:
-                continue
+                return
             
             if not isinstance(commit, models.ComAtprotoSyncSubscribeRepos.Commit):
-                continue
+                return
             
             ops = self._get_ops_by_type(commit)
             
@@ -420,16 +420,27 @@ class Firehose():
                 post_msg = post['record'].text
                 post_langs = post['record'].langs
               
-                print(f'New post in the network! Langs: {post_langs}, Text: {post_msg}')
+                print(f'New post in the network! Langs: {post_langs}, Text: {post_msg},Time:{commit.time}')
+                
+            if commit.seq %20==0:
+                cursor = commit.seq
+            continue
+        
+            if cursor is not None:
+                match commit.time :
+                    case '2024-04-06T19:00:380Z':
+                        while True:
+                            cursor = commit.seq
+                            self.client_f.update_params(self.get_firehose_params(cursor))
+                            ops = self._get_ops_by_type(commit)
+                            self.dfs.append(ops)
+                            cursor = commit.seq+ 1000000
+                    case _ :
+                        cursor = commit.seq-1
+                        print(cursor)
+            continue
             
-                if commit.time =='2024-04-06T17:37:380Z':
-                    self.client_f.stop()
-                    print(f'Successfully stopped after dialing back to {commit.time} day!')
-                    break
-            cursor = commit.seq - 1000000
-            self.client_f.update_params(self.get_firehose_params(cursor))
-            
-            self.dfs.append(ops)
+            #self.dfs.append(ops)
      
     def on_message_handler(self,message: firehose_models.MessageFrame) -> None:
        
@@ -437,8 +448,6 @@ class Firehose():
             
         #cursors.append(cursor)   
         #mess.append(message)
-    
-
 
 
 
