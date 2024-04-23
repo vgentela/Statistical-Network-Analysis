@@ -13,10 +13,10 @@ from atproto import CAR, models ,AtUri
 from atproto import FirehoseSubscribeReposClient, firehose_models, parse_subscribe_repos_message
 import json
 import networkx as nx
-import network_cards as nc
+#import network_cards as nc
 import matplotlib.pyplot as plt
 from pyvis.network import Network
-import queue
+from collections import deque
 
 #%% Looping using feed generator to extract like_count,reply_count,repost_count,hash_tags for every did
 
@@ -34,32 +34,47 @@ class Login():
         
             self.ab = self.client.login(self.username, self.password)
             self.jwt = self.client._access_jwt
+            
         except Exception as e:
             print(f"Error:{e}")
 
-        self.output_client()
+        #self.output_client()
 
     def output_client(self):
         return self.client,self.jwt
     
-    class UserData():
+
+class UserData():
+    
+    def __init__(self,datas,client,jwt):
         
-        def __init__(self,data,client,jwt):
-            
-            
-
-            self.data = data
-            self.client = client
-            self.jwt = jwt
-            
-
-        def extract_did_list(self):
-            did_list = []   
-            data = self.data
+        
+        self.datas = datas
+        self.client = client
+        self.jwt = jwt
+        q = deque()
+        self.q = q
+        
+    def extract_did_list(self):
+        did_list = []   
+        datas = self.datas
+        
+        for d in datas:
+            #print(d)
+            data = self.client.app.bsky.feed.get_feed({
+                'feed': d,
+                'limit': 100,
+            }, headers={'Accept-Language': 'en-US'})
             next_page = data.cursor
-
             for post in data.feed:
+                
                 post_str = str(post)
+                #print(post_str)
+                created_at = re.search(r"created_at='(\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d{3}Z)'",post_str)        
+                time_stamp = created_at.group(1) if created_at is not None else None
+                if time_stamp is not None:
+                    t = datetime.datetime.strptime(time_stamp, "%Y-%m-%dT%H:%M:%S.%fZ")
+                    self.q.append(t)
                 like_count = re.search(r"like_count=(\d+)", post_str).group(1)
                 reply_count = re.search(r"reply_count=(\d+)", post_str).group(1)
                 repost_count = re.search(r"repost_count=(\d+)", post_str).group(1)
@@ -71,109 +86,180 @@ class Login():
                 if next_page is not None:
             
                     did_list.append([did,like_count,reply_count,repost_count,uri,cid,hash_tags])
-
-                    data['cursor'] = next_page           
+                        
+                    #data = data
+                        
                     next_page = data.cursor
-
+                    #print(next_page)
                 else:
-                    did_list.append([did,like_count,reply_count,repost_count,uri,cid,hash_tags])    
-            return did_list
+                    did_list.append([did,like_count,reply_count,repost_count,uri,cid,hash_tags,time_stamp])    
+        return did_list
 
-    #Function to extract did's,cid's,uri's only from the did_list
-        
-        def extract_attributes(self):
-            dids = []
-            cids =[]
-            uris = []
+#Function to extract did's,cid's,uri's only from the did_list
+    
+    def extract_attributes(self):
+        dids = []
+        cids =[]
+        uris = []
 
-            did_list = self.extract_did_list()
+        did_list = self.extract_did_list()
+        print(did_list)
+        print('-----------------------------')
+        for i in did_list:
+            did = i[0]
+            uri = i[4]
+            cid = i[5]
+            dids.append(did)
+            cids.append(cid)
+            uris.append(uri)
+        return dids,cids,uris
+    
 
-            for i in did_list:
-                did = i[0]
-                uri = i[4]
-                cid = i[5]
-                dids.append(did)
-                cids.append(cid)
-                uris.append(uri)
+#Function to extract the followers and following count of every did
+# Instead of using this function, try using get_profile function in the BlueSky API
+    def followers_and_following(self):
 
-            return dids,cids,uris
-        
+        dids,cids,uris = self.extract_attributes()
 
-    #Function to extract the followers and following count of every did
-    # Instead of using this function, try using get_profile function in the BlueSky API
-        def followers_and_following(self):
+        actor_list = []
+        actor_likes = []
+        post_likes = []
+        reposts = []
+        thread_replies = []
 
-            dids,cids,uris = self.extract_attributes()
+        jwt = self.jwt
 
-            actor_list = []
-            actor_likes = []
-            post_likes = []
-            reposts = []
-            thread_replies = []
-
-            jwt = self.jwt
-
-            conn = http.client.HTTPSConnection("bsky.social")
-            pattern = r'"followersCount":(\d+),"followsCount":(\d+),'
-            for did,cid,uri in zip(dids,cids,uris):
-                payload = ''
-                headers = {
-                'Accept': 'application/json',
-                'Authorization': f'Bearer {jwt}'
-                }
-                conn.request("GET", f"/xrpc/app.bsky.actor.getProfile?actor={did}", payload, headers)
-                res1 = conn.getresponse()
-                data1= res1.read()
-                actor_profile = data1.decode("utf-8")
-
-                conn.request("GET", f"/xrpc/app.bsky.feed.getLikes?uri={uri}&cid={cid}", payload, headers)
-                res2 = conn.getresponse()
-                data2 = res2.read()
-                likes = data2.decode("utf-8")
-                
-                conn.request("GET", f"/xrpc/app.bsky.feed.getRepostedBy?uri={uri}", payload, headers)
-                res3 = conn.getresponse()
-                data3 = res3.read()
-                repost = data3.decode("utf-8")
-
-                conn.request("GET", f"/xrpc/app.bsky.feed.getPostThread?uri={uri}", payload, headers)
-                res4 = conn.getresponse()
-                data4 = res4.read()
-                thread = data4.decode("utf-8")
-
-                
-                repost_dids = re.findall(r'"did":"(did:plc:[^"]+)"',repost)
-
-                likers = re.findall(r'"did":"(did:plc:[^"]+)"',likes)
+        conn = http.client.HTTPSConnection("bsky.social")
+        pattern = r'"followersCount":(\d+),"followsCount":(\d+),'
+        for did,cid,uri in zip(dids,cids,uris):
+            payload = ''
+            headers = {
+            'Accept': 'application/json',
+            'Authorization': f'Bearer {jwt}'
+            }
+            conn.request("GET", f"/xrpc/app.bsky.actor.getProfile?actor={did}", payload, headers)
+            res1 = conn.getresponse()
+            data1= res1.read()
+            actor_profile = data1.decode("utf-8")
             
-                match = re.search(pattern,actor_profile)
-                followers_count = match.group(1)
-                follows_count = match.group(2)
+            
+            conn.request("GET", f"/xrpc/app.bsky.feed.getLikes?uri={uri}&cid={cid}", payload, headers)
+            res2 = conn.getresponse()
+            data2 = res2.read()
+            likes = data2.decode("utf-8")
+            
+            conn.request("GET", f"/xrpc/app.bsky.feed.getRepostedBy?uri={uri}", payload, headers)
+            res3 = conn.getresponse()
+            data3 = res3.read()
+            repost = data3.decode("utf-8")
 
-                actor_list.append(list(zip([did, followers_count,follows_count])))
-                actor_likes.append(list(zip([did, likers]))) 
-                post_likes.append(likes)
-                reposts.append(list(zip([did,repost_dids])))
+            conn.request("GET", f"/xrpc/app.bsky.feed.getPostThread?uri={uri}", payload, headers)
+            res4 = conn.getresponse()
+            data4 = res4.read()
+            thread = data4.decode("utf-8")
 
-                thread_dict = json.loads(thread)
-                #print(thread_dict)
-                if 'thread' in thread_dict:
-                    if 'replies' in thread_dict['thread']:
-                        for reply in thread_dict['thread']['replies']:
-                            post = reply.get('post')
-                            author = post.get('author')
-                            replier_did = author.get('did')
-                            thread_replies.append(list(zip([did,replier_did])))
-                
-            return actor_list, actor_likes, post_likes,reposts,thread_replies,dids
+            
+            repost_dids = re.findall(r'"did":"(did:plc:[^"]+)"',repost)
 
+            likers = re.findall(r'"did":"(did:plc:[^"]+)"',likes)
+        
+            match = re.search(pattern,actor_profile)
+            followers_count = match.group(1)
+            following_count = match.group(2)
 
+            actor_list.append(list(zip([did, followers_count,following_count])))
+            actor_likes.append(list(zip([did, likers]))) 
+            post_likes.append(likes)
+            reposts.append(list(zip([did,repost_dids])))
 
+            thread_dict = json.loads(thread)
+            #print(thread_dict)
+            if 'thread' in thread_dict:
+                if 'replies' in thread_dict['thread']:
+                    for reply in thread_dict['thread']['replies']:
+                        post = reply.get('post')
+                        author = post.get('author')
+                        replier_did = author.get('did')
+                        thread_replies.append(list(zip([did,replier_did])))
+            
+        return actor_list, actor_likes, post_likes,reposts,thread_replies,dids
 
+class Mapping(UserData):
+    
+    def __init__(self,jwt,init_feed,client):
+        
+        self.jwt = jwt
+        #self.dids = dids
+        self.init_feed = init_feed
+        self.client = client
+        super().__init__(init_feed,client,jwt)
+        #threading.Thread(target =self.worker).start()
+        self.worker()
+    def actors_feeds(self):
+        
+        jwt = self.jwt
+        dids,cids,uris = self.extract_attributes()
+        
+        conn = http.client.HTTPSConnection("bsky.social")
+        payload = ''
+        headers = {
+          'Accept': 'application/json',
+          'Authorization': f'Bearer {jwt}'
+        }
+        
+        feeds =[]
+        tags = []
+        self.tags = tags
+        for did in dids:
+            conn.request("GET", f"/xrpc/app.bsky.feed.getActorFeeds?actor={did}", payload, headers)
+            res = conn.getresponse()
+            data = res.read().decode("utf-8")
+            for feed in data:
+                if feed is not None:
+                    for val in feed:
+                        val_str = str(val) 
+                        try:
+                            uri = re.search(r"uri:'(at://[^']+)'", val_str).group(1)
+                            hash_tags = re.findall(r"#\w+", val_str)
+                            feeds.append(uri)
+                            tags.append(hash_tags)
+                        except:
+                            continue
+                        
+        return feeds,tags
 
+    def worker(self):
+        
+        conn = http.client.HTTPSConnection("bsky.social")
+        payload = ''
+        headers = {
+          'Accept': 'application/json',
+          'Authorization': f'Bearer {self.jwt} '
+        }
+        conn.request("GET", f"/xrpc/app.bsky.feed.getFeedGenerators?feeds={self.init_feed}", payload, headers)
+        res = conn.getresponse()
+        data = res.read()
+        feed_info = data.decode("utf-8")
+        print(feed_info)
+
+        
+        actor_list,actor_likes,post_likes,reposts,thread_replies,dids = self.followers_and_following()
+        feeds,tags = self.actors_feeds()
+        self.datas = feeds
+        self.init_feed = feeds
+        print('----------------------------------------------------------------')
+        t = self.q[-1]
+        if t.date() == datetime.date(2023,4,15):
+            print(t.date())
+            return
+        
+        return
 #%% test statements
-
-
+login = Login('t0st.bsky.social', 'Val124#$')
+client,jwt = login.output_client()
+#%%
+init_feed = ['at://did:plc:nylio5rpw7u3wtven3vcriam/app.bsky.feed.generator/aaai4amp77qp6']
+Mapping(jwt,init_feed, client)
 #print(post_likes[5])
 #print(len(actor_likes[7][1][0]))
 #print(thread_replies[0][1][0])
@@ -227,7 +313,7 @@ class Build():
     #G = build_network(dids,actor_list,actor_likes,reposts,thread_replies)
 
 # Function to create a network card
-    
+    """
     def net_card(self,G):
         # Create network card
         card = nc.NetworkCard(G)
@@ -249,7 +335,7 @@ class Build():
 
         card.to_latex("Bsky_network_card.tex")
         print(card)
-
+        """
 
 
 #%% More Thoughts and Ideas
