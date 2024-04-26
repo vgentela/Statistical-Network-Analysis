@@ -17,7 +17,7 @@ import networkx as nx
 import matplotlib.pyplot as plt
 from pyvis.network import Network
 from collections import deque
-
+import itertools as it
 #%% Looping using feed generator to extract like_count,reply_count,repost_count,hash_tags for every did
 
 class Login():
@@ -103,12 +103,12 @@ class UserData():
         uris = []
 
         did_list = self.extract_did_list()
-        print(did_list)
-        print('-----------------------------')
+        
         for i in did_list:
-            did = i[0]
-            uri = i[4]
-            cid = i[5]
+            if len(i[0]) >4:
+                did = i[0]
+                uri = i[4]
+                cid = i[5]
             dids.append(did)
             cids.append(cid)
             uris.append(uri)
@@ -163,15 +163,27 @@ class UserData():
 
             likers = re.findall(r'"did":"(did:plc:[^"]+)"',likes)
         
-            match = re.search(pattern,actor_profile)
-            followers_count = match.group(1)
-            following_count = match.group(2)
+            ff_pattern = re.search(pattern,actor_profile)
+            
+            if ff_pattern is not None:
+                followers_count = ff_pattern.group(1)
+                following_count = ff_pattern.group(2)
 
-            actor_list.append(list(zip([did, followers_count,following_count])))
-            actor_likes.append(list(zip([did, likers]))) 
-            post_likes.append(likes)
-            reposts.append(list(zip([did,repost_dids])))
+                actor_list.append(list(zip([did, followers_count,following_count])))
+                actor_likes.append(list(zip([did, likers]))) 
+                post_likes.append(likes)
+                reposts.append(list(zip([did,repost_dids])))
+    
+               
+            else :
+                followers_count = np.nan
+                following_count = np.nan
 
+                actor_list.append(list(zip([did, followers_count,following_count])))
+                actor_likes.append(list(zip([did, likers]))) 
+                post_likes.append(likes)
+                reposts.append(list(zip([did,repost_dids])))
+    
             thread_dict = json.loads(thread)
             #print(thread_dict)
             if 'thread' in thread_dict:
@@ -214,52 +226,71 @@ class Mapping(UserData):
             conn.request("GET", f"/xrpc/app.bsky.feed.getActorFeeds?actor={did}", payload, headers)
             res = conn.getresponse()
             data = res.read().decode("utf-8")
-            for feed in data:
-                if feed is not None:
-                    for val in feed:
-                        val_str = str(val) 
-                        try:
-                            uri = re.search(r"uri:'(at://[^']+)'", val_str).group(1)
-                            hash_tags = re.findall(r"#\w+", val_str)
-                            feeds.append(uri)
-                            tags.append(hash_tags)
-                        except:
-                            continue
+            if data is not None:
+                try:
+                    uri = re.findall(r'"uri":"(at://[^"]+)"', data)
+                    hash_tags = re.findall(r"#\w+", data)
+                    feeds.append(uri)
+                    tags.append(hash_tags)
+                except:
+                    continue
                         
-        return feeds,tags
+        return list(it.chain.from_iterable(feeds)),tags
 
     def worker(self):
+        g1 = nx.DiGraph()
+        g2 = nx.DiGraph()
+        while True:
+            
+            conn = http.client.HTTPSConnection("bsky.social")
+            payload = ''
+            headers = {
+              'Accept': 'application/json',
+              'Authorization': f'Bearer {self.jwt} '
+            }
+            current_tags = []
+            if len(self.init_feed)>1:
+                for i in range(len(self.init_feed)):
+                    conn.request("GET", f"/xrpc/app.bsky.feed.getFeedGenerator?feed={self.init_feed[i]}", payload, headers)
+                    res = conn.getresponse()
+                    data = res.read()
+                    feed_info = data.decode("utf-8")
+                    current_tag = re.search(r"#\w+", feed_info)
+                    current_tags.append(current_tag)
+            
+            actor_list,actor_likes,post_likes,reposts,thread_replies,dids = self.followers_and_following()
+            feeds,tags = self.actors_feeds()
+            #print(feeds,tags)
+            self.datas = feeds
+            self.init_feed = feeds
+            g = Build(dids,actor_list,actor_likes,reposts,thread_replies,current_tags,tags)
+            g.build_network(g1)
+            g.build_network_feed(g2)
+            
+            print('----------------------------------------------------------------')
+            #g = 
+            t = self.q[-1]
+            if t.date() == datetime.date(2023,4,15):
+                print(t.date())
+                nx.write_gml(g1,'g1.gml')
+                nx.write_gm(g2,'g2.gml')
+                nx.kamada_kawai_layout(g1)
+                nx.kamada_kawai_layout(g2)
+                plt.show()
+                return g1,g2
         
-        conn = http.client.HTTPSConnection("bsky.social")
-        payload = ''
-        headers = {
-          'Accept': 'application/json',
-          'Authorization': f'Bearer {self.jwt} '
-        }
-        conn.request("GET", f"/xrpc/app.bsky.feed.getFeedGenerators?feeds={self.init_feed}", payload, headers)
-        res = conn.getresponse()
-        data = res.read()
-        feed_info = data.decode("utf-8")
-        print(feed_info)
-
-        
-        actor_list,actor_likes,post_likes,reposts,thread_replies,dids = self.followers_and_following()
-        feeds,tags = self.actors_feeds()
-        self.datas = feeds
-        self.init_feed = feeds
-        print('----------------------------------------------------------------')
-        t = self.q[-1]
-        if t.date() == datetime.date(2023,4,15):
-            print(t.date())
-            return
-        
-        return
-#%% test statements
+       
+#%%
 login = Login('t0st.bsky.social', 'Val124#$')
 client,jwt = login.output_client()
 #%%
 init_feed = ['at://did:plc:nylio5rpw7u3wtven3vcriam/app.bsky.feed.generator/aaai4amp77qp6']
 Mapping(jwt,init_feed, client)
+#%% test statements
+#feeds =['at://did:plc:ekakc6ukwom6kbkhttmf5iot/app.bsky.feed.generator/aaafzcponj76k', 'at://did:plc:ekakc6ukwom6kbkhttmf5iot/app.bsky.feed.generator/aaaem5qglmtme', 'at://did:plc:ekakc6ukwom6kbkhttmf5iot/app.bsky.feed.generator/aaadowj3kyaqg', 'at://did:plc:ekakc6ukwom6kbkhttmf5iot/app.bsky.feed.generator/aaaahszoazxnq', 'at://did:plc:obzgiyh5vnhtwrtewot77mi4/app.bsky.feed.generator/aaaj56gtwli3u', 'at://did:plc:obzgiyh5vnhtwrtewot77mi4/app.bsky.actor.profile/self']
+#for feed in feeds:
+    #print(feed)
+#print(init_feed.strip())
 #print(post_likes[5])
 #print(len(actor_likes[7][1][0]))
 #print(thread_replies[0][1][0])
@@ -270,19 +301,20 @@ Mapping(jwt,init_feed, client)
 #print(actor_list)
 
 
-#%% Building the network:
+    #%% Building the network:
 class Build():
     
-    def __init__(self,dids,actor_list,actor_likes,reposts,thread_replies):
+    def __init__(self,dids,actor_list,actor_likes,reposts,thread_replies,current_tags,tags):
         self.dids = dids
         self.actor_list = actor_list
         self.actor_likes = actor_likes
         self.reposts = reposts
         self.thread_replies = thread_replies
+        self.current_tags = current_tags
+        self.tags = tags
         
-    def build_network(self):
+    def build_network(self,G):
         # Create an empty directed graph
-        G = nx.DiGraph()
 
         # Add nodes for each DID from the feed with follower and following counts
         for i in range(len(self.dids)):
@@ -291,7 +323,7 @@ class Build():
                 followers_count = self.actor_list[i][1][0]
                 follows_count = self.actor_list[i][2][0]
                 G.add_node(did, followers_count=followers_count, follows_count=follows_count)
-                print(did)
+                #print(did)
         # Add edges based on likes, reposts, and replies with edge attributes
         
             if i < len(self.actor_likes):
@@ -306,11 +338,27 @@ class Build():
                 for thread_reply in self.thread_replies[i][1][0]:
                     G.add_edge(did, thread_reply, relationship='reply')
 
-            plt.show()
-            nx.write_gml(G, 'graph.gml', stringizer=None)
+            #plt.show()
+            #nx.write_gml(G, 'graph.gml', stringizer=None)
+            
+      
+    
+    def build_network_feed(self,G):
+        tags = self.tags
+        current_tags = self.current_tags
 
-        return G
-    #G = build_network(dids,actor_list,actor_likes,reposts,thread_replies)
+        if len(current_tags) >0 and len(tags)>0:
+           for idx, ct,ts in enumerate(zip(current_tags,tags)):
+               G.add_node(ct)
+               for t in ts:
+                   if t is not None:
+                       G.add_nodes_from(t)
+                       G.add_edge_from([ct,tag] for tag in t)
+        #plt.show()
+        #nx.write_gml(G,'graph_2.gml')
+        
+    
+#%%
 
 # Function to create a network card
     """
@@ -329,211 +377,13 @@ class Build():
             "Data generating process": "Extracting the data using the BlueSky API",
             "Ethics":                   "N/A",
             "Funding":                 "None",
-            "Citation":                "arXiv:2206.00026",
+            "Citation":                "None"
             "Access":                   "https://docs.bsky.app/docs/get-started"
             })
 
         card.to_latex("Bsky_network_card.tex")
         print(card)
         """
-
-
-#%% More Thoughts and Ideas
-"""
-conn.request("GET", "/xrpc/app.bsky.feed.getPostThread", payload, headers)
-conn.request("GET", "/xrpc/app.bsky.actor.getProfile", payload, headers)
-conn.request("GET", "/xrpc/app.bsky.feed.getActorLikes?actor=at://did:plc:uzdj33pvksktazllpypimbg4", payload, headers)
-conn.request("GET", "/xrpc/com.atproto.admin.getRecord?uri=at://did:plc:nylio5rpw7u3wtven3vcriam/app.bsky.feed/aaai4amp77qp6", payload, headers)
-
-conn.request("GET", "/xrpc/app.bsky.feed.getLikes", payload, headers)
-conn.request("GET", "/xrpc/app.bsky.feed.getRepostedBy", payload, headers)
-conn.request("GET", "/xrpc/app.bsky.graph.getFollowers", payload, headers)
-conn.request("GET", "/xrpc/app.bsky.graph.getFollows", payload, headers)
-"""
-
-"""
-Array : Two dimensional
-    rows : nodes or users
-    cols : connections or edges(likes, replies, reposts, mentions)
-    Edges are directed and parallel.
-    Node attributes : followers, following, mentions
-    Edges also contain attribute info such as likes, replies, reposts.
-    But, what about hashtags??? Probably, hashtags form the outer or the higher level in the network and every post in the feed is
-    categorized under each hashtag and hastags are then linked in the network.
-
-Drop Duplicate DID's
-Here is the idea : For all the likes, replies,mentions and reposts : create edges.
-get likes for did's in did list using http method and add an edge between the author of the post and liker of the post.
-
-Every Node should display the name of the feed or feeds they belong to.
-if there are reposts, the repost should be mentioned on the edge as reposted.
-
-The outer layer of the network should be clustered into different feeds and the next hashtags and edges should be between users
-in the same or different feeds.
-
-Another idea : Start with actors in one feed and build a network as it expands.(actors in one feed liking posts of actors in other feed
-,etc.. )
-
-THE EDGE SHOULD CONTAIN THE NAME OF FEEDS THE CONNECTING DID FOLLOWS // TODO Implement this 
-EXTRACT MULTIPLE REPLIES IN THREADS AND ADD EDGES BETWEEN THE DID's IN THREADS.//TODO Implement this
-
-Nodes : did's in the first feed
-Edges : for every did in the feed, edge to did's who have liked a post, replied to a post, reposted the post.
-
-Node attributes : followers_count, following_count, like_count
-Edge attributes : indicating if the edge is a like, reply or a repost.
-
-did's from the did_list will be the nodes
-for every other did that liked,replied to or reposted this did's post will have an edge.
-
-edges to the did's in the actor_likes list will carry the like attribute.
-
-"""
-
-#%%Firehose
-#%% Firehose V2
-
-class Firehose():
-    
-    def __init__(self):
-        
-        cursor = 0
-        params = self.get_firehose_params(cursor)
-        client_f = FirehoseSubscribeReposClient(params)
-        self.client_f = client_f
-        q = queue.Queue()
-        self.q = q
-        self.dfs = []
-        threading.Thread(target = self.worker).start()  
-        self.client_f.start(self.on_message_handler)
-        
-    def _get_ops_by_type(self,commit: models.ComAtprotoSyncSubscribeRepos.Commit) -> dict:  # noqa: C901
-        operation_by_type = {
-            'posts': {'created': [], 'deleted': []},
-            'reposts': {'created': [], 'deleted': []},
-            'likes': {'created': [], 'deleted': []},
-            'follows': {'created': [], 'deleted': []},
-        }
-    
-        car = CAR.from_bytes(commit.blocks)
-        for op in commit.ops:
-            #print(op)
-            uri = AtUri.from_str(f'at://{commit.repo}/{op.path}')
-    
-            if op.action == 'update':
-                # not supported yet
-                continue
-    
-            if op.action == 'create':
-                if not op.cid:
-                    continue
-    
-                
-    
-                record_raw_data = car.blocks.get(op.cid)
-                if not record_raw_data:
-                    continue
-    
-                record = models.get_or_create(record_raw_data, strict=False)
-                create_info = {'uri': str(uri), 'cid': str(op.cid), 'author': commit.repo}
-                if uri.collection == models.ids.AppBskyFeedLike and models.is_record_type(
-                    record, models.ids.AppBskyFeedLike
-                ):
-                    operation_by_type['likes']['created'].append({'record': record, **create_info})
-                elif uri.collection == models.ids.AppBskyFeedPost and models.is_record_type(
-                    record, models.ids.AppBskyFeedPost
-                ):
-                    operation_by_type['posts']['created'].append({'record': record, **create_info})
-                elif uri.collection == models.ids.AppBskyFeedRepost and models.is_record_type(
-                    record, models.ids.AppBskyFeedRepost
-                ):
-                    operation_by_type['reposts']['created'].append({'record': record, **create_info})
-                elif uri.collection == models.ids.AppBskyGraphFollow and models.is_record_type(
-                    record, models.ids.AppBskyGraphFollow
-                ):
-                    operation_by_type['follows']['created'].append({'record': record, **create_info})
-    
-            if op.action == 'delete':
-                if uri.collection == models.ids.AppBskyFeedLike:
-                    operation_by_type['likes']['deleted'].append({'uri': str(uri)})
-                elif uri.collection == models.ids.AppBskyFeedPost:
-                    operation_by_type['posts']['deleted'].append({'uri': str(uri)})
-                elif uri.collection == models.ids.AppBskyFeedRepost:
-                    operation_by_type['reposts']['deleted'].append({'uri': str(uri)})
-                elif uri.collection == models.ids.AppBskyGraphFollow:
-                    operation_by_type['follows']['deleted'].append({'uri': str(uri)})
-    
-        return operation_by_type
-
-
-    def get_firehose_params(self,cursor_value) -> models.ComAtprotoSyncSubscribeRepos.Params:
-        return models.ComAtprotoSyncSubscribeRepos.Params(cursor_value = cursor_value)
-    
-
-
-
-    # store all unique repo's in a list for a period of a year.
-    #For repo in repo_list extract all records from that rep
-    
-        #threading.Thread(target = client_stop(secs)).start()
-        
-
-   # we need to be sure that it's commit message with .blocks inside
- 
-    #decoded_message = atproto_core.cbor.decode_dag_multi(commit)
-    #print(car.root,car.blocks.items())
-    #print("-------------------------------------------------------------------------")
-
-
-    def worker(self) -> None:
-      
-        while True:
-            message = self.q.get()
-            
-            if not isinstance(message, firehose_models.MessageFrame):
-                return
-            try:
-                commit = parse_subscribe_repos_message(message)
-            except KeyError:
-                return
-            
-            if not isinstance(commit, models.ComAtprotoSyncSubscribeRepos.Commit):
-                return
-            
-            ops = self._get_ops_by_type(commit)
-            
-            for post in ops['posts']['created']:
-                post_msg = post['record'].text
-                post_langs = post['record'].langs
-              
-                print(f'New post in the network! Langs: {post_langs}, Text: {post_msg},Time:{commit.time}')
-                
-            if commit.seq %20==0:
-                cursor = commit.seq
-            continue
-        
-            if cursor is not None:
-                match commit.time :
-                    case '2024-04-06T19:00:380Z':
-                        while True:
-                            cursor = commit.seq
-                            self.client_f.update_params(self.get_firehose_params(cursor))
-                            ops = self._get_ops_by_type(commit)
-                            self.dfs.append(ops)
-                            cursor = commit.seq+ 1000000
-                    case _ :
-                        cursor = commit.seq-1
-                        print(cursor)
-            continue
-            
-            #self.dfs.append(ops)
-     
-    def on_message_handler(self,message: firehose_models.MessageFrame) -> None:
-       
-        self.q.put(message)
-            
-        #cursors.append(cursor)   
-        #mess.append(message)
 
 
 
