@@ -134,8 +134,8 @@ class UserData():
                         uri = i[4]
                         cid = i[5]
                         dids.append(did)
-                        cids.append(did)
-                        uris.append(did)
+                        cids.append(cid)
+                        uris.append(uri)
                         
                 feed_dids.append([feeds[0],dids])
                 feed_cids.append([feeds[0],cids])
@@ -321,37 +321,38 @@ class Mapping(UserData):
         uris = []
         self.tags = tags
         for did in dids:
-            conn.request("GET", f"/xrpc/app.bsky.feed.getActorFeeds?actor={did}", payload, headers)
-            res = conn.getresponse()
-            data = res.read().decode("utf-8")
-            #print(data)
-            if data is not None:
-                feeds = json.loads(data)
-                if feeds is not None:
-                    #print(feeds.get('feeds'))
-                    try:
-                        for feed in feeds.get('feeds'):
-                            #feed_list = feed.get("feeds")
-                            #print(feed)
-                            #print('-----------------------')
-                            #print(feed.get('displayName'))
-                            uri = feed.get('uri')
-                            #print(uri)
-                            hash_tags = re.findall(r"#\w+", str(feed))
-                            #print(hash_tags)
-                            if len(hash_tags) == 0:
-                                #print(feed.get('displayName'),feed.get('indexedAt'))
-                                tags.append(feed.get('displayName'))
-                                timestamps.append(feed.get('indexedAt'))
-                                uris.append(uri)
-                            else:
-                                #print(feed.get('displayName'),feed.get('indexedAt'))
-                                tags.append(hash_tags)
-                                timestamps.append(feed.get('indexedAt'))
-                                uris.append(uri)
-                        
-                    except Exception as e:
-                        continue
+            for d in did[1]:
+                conn.request("GET", f"/xrpc/app.bsky.feed.getActorFeeds?actor={d}", payload, headers)
+                res = conn.getresponse()
+                data = res.read().decode("utf-8")
+                #print(data)
+                if data is not None:
+                    feeds = json.loads(data)
+                    if feeds is not None:
+                        #print(feeds.get('feeds'))
+                        try:
+                            for feed in feeds.get('feeds'):
+                                #feed_list = feed.get("feeds")
+                                #print(feed)
+                                #print('-----------------------')
+                                #print(feed.get('displayName'))
+                                uri = feed.get('uri')
+                                #print(uri)
+                                hash_tags = re.findall(r"#\w+", str(feed))
+                                #print(hash_tags)
+                                if len(hash_tags) == 0:
+                                    #print(feed.get('displayName'),feed.get('indexedAt'))
+                                    tags.append(feed.get('displayName'))
+                                    timestamps.append(feed.get('indexedAt'))
+                                    uris.append(uri)
+                                else:
+                                    #print(feed.get('displayName'),feed.get('indexedAt'))
+                                    tags.append(hash_tags)
+                                    timestamps.append(feed.get('indexedAt'))
+                                    uris.append(uri)
+                            
+                        except Exception as e:
+                            continue
         #print(feeds)
         #print('-------------------------------------------')
         return tags,timestamps,uris
