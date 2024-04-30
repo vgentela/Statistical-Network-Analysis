@@ -117,7 +117,7 @@ class UserData():
                                 
                                 if time_stamp is not None:
                                     t = datetime.datetime.strptime(time_stamp, "%Y-%m-%dT%H:%M:%S.%fZ")
-                                    #print(t.date())
+                                
                                     if t.date() == datetime.date(2023,4,15):
                                         return None
                                         
@@ -174,7 +174,7 @@ class UserData():
             if feeds is not None:
                 for i in feeds[1]:
                     if len(i) >4:
-                        #print(i)
+                    
                         did = i[0]
                         uri = i[4]
                         cid = i[5]
@@ -277,7 +277,7 @@ class UserData():
                     if thread is not None:
                         try:
                             thread_dict = json.loads(thread)
-                        #print(thread_dict)
+                        
                             if 'thread' in thread_dict:
                                 if 'replies' in thread_dict['thread']:
                                     for reply in thread_dict['thread']['replies']:
@@ -321,7 +321,6 @@ class Build():
         self.actor_likes = actor_likes
         self.reposts = reposts
         self.thread_replies = thread_replies
-        #self.current_tags = current_tags
         self.tags = tags
     
     def destringizer(self,val):
@@ -356,7 +355,6 @@ class Build():
                         d = current_did.pop()
                         
                         if did !=d and did in self.actor_list[i][1][0]:
-                            #print(self.actor_list[i][1][0])
                             followers_count = self.actor_list[i][1][1]
                             follows_count = self.actor_list[i][1][2]
                             G.add_node(did, followers_count=followers_count, follows_count=follows_count,category='User')
@@ -367,19 +365,17 @@ class Build():
                             for did,likers in self.actor_likes[i][1]:
                                 for liker in likers:
                                     if len(liker)>0 and type(liker) is not list:
-                                        #print(liker)
+                                       
                                         G.add_edge(did, liker, relationship='like')
             
                         if i < len(self.reposts):
                             for did,reposts in self.reposts[i][1]:
                                 for repost in reposts:
-                                    #print(repost)
                                     if len(repost)>0 and type(repost) is not list:
                                         G.add_edge(did, repost, relationship='repost')
             
                         if i < len(self.thread_replies):
                             for poster,replier in self.thread_replies[i][1]:
-                                    #print(thread_reply)
                                     if len(replier)>0 and type(replier) is not list:
                                         G.add_edge(poster, replier, relationship='reply')
                     else:
@@ -426,8 +422,6 @@ class Mapping(UserData):
         self.g1 = g1
         self.g2 = g2
         
-        #threading.Thread(target =self.worker).start()
-        #self.worker(self.q)
         
     def actors_feeds(self,dids):
         """Extracts feed uris created by each DID(user).
@@ -462,11 +456,11 @@ class Mapping(UserData):
                         conn.request("GET", f"/xrpc/app.bsky.feed.getActorFeeds?actor={d}", payload, headers)
                         res = conn.getresponse()
                         data = res.read().decode("utf-8")
-                        #print(data)
+
                         if data is not None:
                             feeds = json.loads(data)
                             if feeds is not None:
-                                #print(feeds.get('feeds'))
+
                                 try:
                                     for feed in feeds.get('feeds'):
                                       
