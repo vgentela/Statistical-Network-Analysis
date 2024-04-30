@@ -9,7 +9,7 @@ Data Extraction:
 
 The Network Description:
 
-  ![Network Card](full_net_cardnetwork_card.png)
+  ![Network Card](full_net_card.png)
   
 - The network described using a [network card](https://github.com/vgentela/Statistical-Network-Analysis/blob/main/Bsky_network_card.tex)
 - Network card is a network descriptor which can be used by importing the network-cards library. More on network cards in the [paper](https://arxiv.org/abs/2206.00026) and the [GitHub repository](https://github.com/network-cards/network-cards)
