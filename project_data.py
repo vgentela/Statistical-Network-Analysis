@@ -19,7 +19,7 @@ from collections import deque
 import itertools as it
 import network_cards as nc
 from pathlib import Path
-#%% Looping using feed generator to extract like_count,reply_count,repost_count,hash_tags for every did
+#%% Login class
 
 class Login():
     """A class to handle login functionality for the Bluesky API.
@@ -96,9 +96,9 @@ class UserData():
         
         for i in range(len(self.datas)):
            
-                #print(d)
+            
                 pattern = re.search(r'/([\w-]+)$',self.datas[i]).group(1)
-                #print(pattern)
+           
                 if pattern == 'self':
                     continue
                 else:
@@ -111,7 +111,7 @@ class UserData():
                         while True:
                             for post in data.feed:
                                 post_str = str(post)
-                                #print(post_str)
+                              
                                 created_at = re.search(r"created_at='(\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d{3}Z)'",post_str)        
                                 time_stamp = created_at.group(1) if created_at is not None else None
                                 
@@ -121,7 +121,7 @@ class UserData():
                                     if t.date() == datetime.date(2023,4,15):
                                         return None
                                         
-                                    #print(self.q)
+                                 
                                 like_count = re.search(r"like_count=(\d+)", post_str).group(1)
                                 reply_count = re.search(r"reply_count=(\d+)", post_str).group(1)
                                 repost_count = re.search(r"repost_count=(\d+)", post_str).group(1)
@@ -129,7 +129,7 @@ class UserData():
                                 did = re.search(r"did='(.*?)'", post_str).group(1)
                                 uri = re.search(r"uri='(at://[^']+)'", post_str).group(1)
                                 cid = re.search(r"cid='([^']+)'",post_str).group(1)
-                                #print(post)
+                               
                                 did_list.append([did,like_count,reply_count,repost_count,uri,cid,hash_tags])
                         
                             if next_page is not None:
@@ -140,8 +140,7 @@ class UserData():
                                         'cursor': next_page
                                     }, headers={'Accept-Language': 'en-US'})
                                 next_page = data.cursor
-                                #print(data.cursor)
-                            #print(next_page)
+                                
                             else:
                                 feed_list.append([tags[i],did_list])
                                 break
@@ -192,7 +191,7 @@ class UserData():
     
 
 #Function to extract the followers and following count of every did
-# Instead of using this function, try using get_profile function in the BlueSky API
+
     def followers_and_following(self,dids,cids,uris):
         
             """Extracts followers and following count for each DID.
@@ -470,21 +469,15 @@ class Mapping(UserData):
                                 #print(feeds.get('feeds'))
                                 try:
                                     for feed in feeds.get('feeds'):
-                                        #feed_list = feed.get("feeds")
-                                        #print(feed)
-                                        #print('-----------------------')
-                                        #print(feed.get('displayName'))
-                                        uri = feed.get('uri')
-                                        #print(uri)
+                                      
+                                        uri = feed.get('uri')   
                                         hash_tags = re.findall(r"#\w+", str(feed))
-                                        #print(hash_tags)
+                                     
                                         if len(hash_tags) == 0:
-                                            #print(feed.get('displayName'),feed.get('indexedAt'))
                                             tags.append(feed.get('displayName'))
                                             timestamps.append(feed.get('indexedAt'))
                                             uris.append(uri)
                                         else:
-                                            #print(feed.get('displayName'),feed.get('indexedAt'))
                                             tags.append(hash_tags)
                                             timestamps.append(feed.get('indexedAt'))
                                             uris.append(uri)
@@ -496,28 +489,23 @@ class Mapping(UserData):
                     conn.request("GET", f"/xrpc/app.bsky.feed.getActorFeeds?actor={d}", payload, headers)
                     res = conn.getresponse()
                     data = res.read().decode("utf-8")
-                    #print(data)
+             
                     if data is not None:
                         feeds = json.loads(data)
                         if feeds is not None:
-                            #print(feeds.get('feeds'))
+                        
                             try:
                                 for feed in feeds.get('feeds'):
-                                    #feed_list = feed.get("feeds")
-                                    #print(feed)
-                                    #print('-----------------------')
-                                    #print(feed.get('displayName'))
                                     uri = feed.get('uri')
-                                    #print(uri)
+                                
                                     hash_tags = re.findall(r"#\w+", str(feed))
-                                    #print(hash_tags)
+                                
                                     if len(hash_tags) == 0:
-                                        #print(feed.get('displayName'),feed.get('indexedAt'))
+                                       
                                         tags.append(feed.get('displayName'))
                                         timestamps.append(feed.get('indexedAt'))
                                         uris.append(uri)
                                     else:
-                                        #print(feed.get('displayName'),feed.get('indexedAt'))
                                         tags.append(hash_tags)
                                         timestamps.append(feed.get('indexedAt'))
                                         uris.append(uri)
