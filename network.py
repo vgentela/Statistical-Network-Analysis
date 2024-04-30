@@ -10,7 +10,7 @@ import json
 from pathlib import Path
 #%%
 
-login = Login('t0st.bsky.social', 'Val124#$')
+login = Login('handle', 'password')
 client,jwt = login.output_client()
 #%%
 init_feed = ['at://did:plc:z72i7hdynmk6r22z27h6tvur/app.bsky.feed.generator/hot-classic']
