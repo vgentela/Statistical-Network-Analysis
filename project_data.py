@@ -413,13 +413,10 @@ class Mapping(UserData):
        jwt (str): The JSON Web Token (JWT) for authentication.
        init_feed (list): A list of initial feed data.
        client (Client): An instance of the Bluesky API client.
-       g1 (networkx.Graph): The first network graph instance.
-       g2 (networkx.Graph): The second network graph instance.
-
+       
    Attributes:
        init_feed (list): A list of initial feed data.
-       g1 (networkx.Graph): The first network graph instance.
-       g2 (networkx.Graph): The second network graph instance.
+       
    """
     def __init__(self,jwt,init_feed,client):
         super().__init__(init_feed,client,jwt)
@@ -537,7 +534,6 @@ def net_card(G):
 
     # Create network card
     card = nc.NetworkCard(G)
-    print(card)
     card.update_overall("Name", "BlueSky Network Graph")
     card.update_overall("Nodes are", "People whose post appeared on #hot-classic on Bluesky")
     card.update_overall("Links are", "People who interacted with the posts(likes,replies,reposts)")

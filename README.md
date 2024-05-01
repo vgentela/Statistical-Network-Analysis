@@ -18,8 +18,8 @@ The Network itself:
 You can find the network file in the gml format: [Network](https://github.com/vgentela/Statistical-Network-Analysis/blob/main/n17.gml)
 
 To be fixed:
-- There are a couple of fucntions that need fixing, such as the worker and rec function that recursively extract data from feeds found in the current feed until you reach a termination condition.
 - Parsing functions to be refined by using json.
+- Once the parsing methodology is changed, reading the community tag and adding it to plots is a functionality to be achieved.
   
 License:
 All the contents in this repository are licensed using [CC0 1.0 Universal LICENSE](https://github.com/vgentela/Statistical-Network-Analysis/blob/main/LICENSE)
