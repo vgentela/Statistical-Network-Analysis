@@ -3,7 +3,7 @@ In this project, Bluesky, a social media application, is represented as a networ
 
 Data Extraction:
 - The file project_data.py contains the code to extract the data from Bluesky API.
-- The file network.py is an example code to call the functions of different classes to extract data from the Bluesky API.
+- The file network.py is an example code to call the functions of different classes to extract data from the Bluesky API and [n18.gml](n18.gml) is the network generated using the initial feed(hot-classic).
 - Full_net_card displays the summary of the network. The card is available in latex format as `Bsky_network_card`.
   
 
