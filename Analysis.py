@@ -13,25 +13,35 @@ ac = mixing_analysis(G,'followers_count')
 
 ### Step 3: Clustering and Community Detection
 
-def detect_communities(graph):
-    communities = nx.algorithms.community.girvan_newman(graph)
-    print(communities)
-    # Get the first set of communities
-    first_iteration_communities = next(communities)
-    pos = nx.spring_layout(graph)
-    cmap = plt.get_cmap('viridis')
-    size = float(len(first_iteration_communities))
-    for idx, community in enumerate(first_iteration_communities):
-        nx.draw_networkx_nodes(graph, pos, community, node_size=20, node_color=[cmap(idx / size)])
 
+
+def detect_communities(graph):
+    # Find communities using the greedy modularity maximization
+    communities = nx.community.greedy_modularity_communities(graph,best_n=3)
+
+    # Visualization setup
+    pos = nx.spring_layout(graph)  # Node positions in 2D space using spring layout
+    colors = plt.get_cmap('viridis')  # Color map for different communities
+
+    # Prepare a color palette with enough colors
+    color_map = {}
+    for idx, community in enumerate(communities):
+        for node in community:
+            color_map[node] = idx  # Assign community index as color
+
+    # Draw nodes with community colors
+    nx.draw_networkx_nodes(graph, pos, node_color=[colors(color_map[node] / len(communities)) for node in graph], node_size=50)
+
+    # Draw edges
     nx.draw_networkx_edges(graph, pos, alpha=0.5)
-    plt.savefig('communities.png')
+
+    plt.savefig('greedy_modularity_communities.png')
+    plt.tight_layout()
     plt.show()
 
-
+    return communities  # Optionally return the communities
 
 detect_communities(G)
-
 
 ### Step 4: Ranking Methodologies (PageRank)
 #Finally, let's use PageRank to rank the nodes in the network based on their influence.
@@ -51,8 +61,8 @@ def rank_nodes(graph):
     plt.xlabel('PageRank Score')
     plt.ylabel('Node')
     plt.title('Top 10 Nodes by PageRank Score')
-    plt.gca().invert_yaxis()  # Invert y-axis to have highest score at the top
     plt.savefig('PageRank')
+    plt.tight_layout()
     plt.show()
 
 rank_nodes(G)

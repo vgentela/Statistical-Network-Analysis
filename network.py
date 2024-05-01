@@ -8,7 +8,7 @@ from project_data import *
 import networkx as nx
 import json
 from pathlib import Path
-#%%
+#%% Login by replacing the handle and password with your your username and password
 
 login = Login('handle', 'password')
 client,jwt = login.output_client()
@@ -16,46 +16,20 @@ client,jwt = login.output_client()
 init_feed = ['at://did:plc:z72i7hdynmk6r22z27h6tvur/app.bsky.feed.generator/hot-classic']
 
 ud = UserData(init_feed, client, jwt)
-#%%
+#%% Extract information about each user who has posted to a feed
 did_list = ud.extract_did_list(['#hot-classic'])
 #%%
 dids,cids,uris = ud.extract_attributes(did_list)
 #%%
 actor_list, actor_likes, post_likes,reposts,thread_replies,dids = ud.followers_and_following(dids,cids,uris)
-#%%
-g1 ,g2 = nx.DiGraph(), nx.DiGraph()
+#%% Initialzie the mapping class
+mp = Mapping(jwt, init_feed, client)
 
-mp = Mapping(jwt, init_feed, client, g1, g2)
-
-
-#%% 
+#Extract the feeds created by the user in present community if you want to use them for recursive data extraction
 tags,timestamps,feed_uris = mp.actors_feeds(dids)
 
-#%%
-build = Build(dids,actor_list, actor_likes,reposts,thread_replies,tags)
+#%% Build the network
+g1= nx.Graph()
+build = Build(dids,actor_list, actor_likes,reposts,thread_replies)
 
 build.build_network(g1)
-
-#%%% ----------------------------------------------------------------------------------
-#---------------------------------------------------------------------------------------
-#---------------------------------------------------------------------------------------
-#%% For 2nd Set of Feeds
-
-ud_1 = UserData(feed_uris[5:15], client, jwt)
-#%%
-feed_list_1 = ud_1.extract_did_list(tags[5:15])
-#%%
-dids_1,cids_1,uris_1 = ud.extract_attributes(feed_list_1)
-#%%
-actor_list_1, actor_likes_1, post_likes_1,reposts_1,thread_replies_1,dids_1 = ud.followers_and_following(dids_1,cids_1,uris_1)
-#%%
-g = nx.DiGraph()
-build = Build(dids_1,actor_list_1, actor_likes_1,reposts_1,thread_replies_1,tags)
-
-g = build.build_network(g)
-#%% 
-thread_replies[0][1]
-#%%
-
-len(g.nodes)
-#%%

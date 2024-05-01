@@ -1,3 +1,10 @@
+# -*- coding: utf-8 -*-
+"""
+Created on Tue Apr 30 20:22:22 2024
+
+@author: Varshney
+"""
+
 #%%
 import threading
 import multiprocessing
@@ -220,7 +227,7 @@ class UserData():
             conn = http.client.HTTPSConnection("bsky.social")
             pattern = r'"followersCount":(\d+),"followsCount":(\d+),'
             for did,cid,uri in zip(dids,cids,uris):
-                for d,c,u in zip(did[1][0:1000],cid[1][0:1000],uri[1][0:1000]):
+                for d,c,u in zip(did[1],cid[1],uri[1]):
 
                     payload = ''
                     headers = {
@@ -315,13 +322,13 @@ class Build():
         tags (list): A list of community tags.
     """
     
-    def __init__(self,dids,actor_list,actor_likes,reposts,thread_replies,tags):
+    def __init__(self,dids,actor_list,actor_likes,reposts,thread_replies):
         self.dids = dids
         self.actor_list = actor_list
         self.actor_likes = actor_likes
         self.reposts = reposts
         self.thread_replies = thread_replies
-        self.tags = tags
+    
     
     def destringizer(self,val):
         
@@ -348,54 +355,52 @@ class Build():
         """
         current_did = []
         
-        for i in range(len(self.dids)):
-            for did in self.dids[i][1]:
-                    #print(did)
-                    if len(current_did)>0:
-                        d = current_did.pop()
+  
+        for i, (did,actor,liker,replier,reposter) in enumerate(zip(self.dids,self.actor_list,self.actor_likes,self.thread_replies,self.reposts)):
+                for d,a,(_,itr_1),(_,itr_2),(_,itr_3) in zip(did[1],actor[1],liker[1],reposter[1],replier[1]):
+                    try:
+                        if len(current_did)>0:
+                            prev_d = current_did.pop()
                         
-                        if did !=d and did in self.actor_list[i][1][0]:
-                            followers_count = self.actor_list[i][1][1]
-                            follows_count = self.actor_list[i][1][2]
-                            G.add_node(did, followers_count=followers_count, follows_count=follows_count,category='User')
-    
-            # Add edges based on likes, reposts, and replies with edge attributes
-            
-                        if i < len(self.actor_likes):
-                            for did,likers in self.actor_likes[i][1]:
-                                for liker in likers:
-                                    if len(liker)>0 and type(liker) is not list:
-                                       
-                                        G.add_edge(did, liker, relationship='like')
-            
-                        if i < len(self.reposts):
-                            for did,reposts in self.reposts[i][1]:
-                                for repost in reposts:
-                                    if len(repost)>0 and type(repost) is not list:
-                                        G.add_edge(did, repost, relationship='repost')
-            
-                        if i < len(self.thread_replies):
-                            for poster,replier in self.thread_replies[i][1]:
-                                    if len(replier)>0 and type(replier) is not list:
-                                        G.add_edge(poster, replier, relationship='reply')
-                    else:
-                        followers_count = self.actor_list[i][1][1]
-                        follows_count = self.actor_list[i][1][2]
-                        G.add_node(did, followers_count=followers_count, follows_count=follows_count,category='User')
-                        current_did.append(did)
+                            if d !=prev_d and d in a[0][0]:
+                                followers_count = a[1][0]
+                                follows_count = a[2][0]
+                                G.add_node(d, followers_count=followers_count, follows_count=follows_count,category='User',community=f'community{i}')
+                                # Add edges based on likes, reposts, and replies with edge attributes
+                                if len(itr_1) !=0:
+                                    for i in itr_1[0]:
+                                        G.add_edge(d,i, relationship ='like')
+                                if  len(itr_2)!=0:
+                                     for i in itr_2[0]:
+                                         G.add_edge(d,i, relationship='repost')
+                                if len(replier[1])!= 0:
+                                      G.add_edge(d,itr_3[0][0], relationship= 'replies')   
+                            
+                        else:
+                             followers_count = a[1][0]
                         
-            if len(self.dids)>1:
-                while i<len(self.dids):
-                    for did,(did,liker),(did,reposter),(poster,replier) in zip(self.dids[i][1],self.actor_likes[i][1],self.reposts[i][1],self.thread_replies[i][1]):
-                        if did or liker or reposter or replier  in self.dids[i+1][1] or self.actor_likes[i+1][1] or self.reposts[i+1][1] or self.thread_replies[i+1][1]:
-                            G.add_node(self.dids[i][0],category ='community')
-                            G.add_edge(self.dids[i+1][0],self.dids[i][0],category='community')
+                             follows_count = a[2][0]
+ 
+                             G.add_node(d, followers_count=followers_count, follows_count=follows_count,category='User',community=f'community{i}')
+                             current_did.append(d)
+                             if len(itr_1) !=0:
+                                 for i in itr_1[0]:
+                                     G.add_edge(d,i, relationship ='like')
+                             if  len(itr_2)!=0:
+                                  for i in itr_2[0]:
+                                      G.add_edge(d,i, relationship='repost')
+                             if len(replier[1])!= 0:
+                                   G.add_edge(d,itr_3[0][0], relationship= 'replies')    
+                    
+                    except:
+                        continue
+                   
                             
        
 
         nx.draw(G,alpha =0.5,linewidths =0.7)
         plt.savefig('net')
-        nx.write_gml(G, 'graph.gml', stringizer=self.destringizer)
+        nx.write_gml(G, 'graph.gml')
             
         return G
 
@@ -416,12 +421,10 @@ class Mapping(UserData):
        g1 (networkx.Graph): The first network graph instance.
        g2 (networkx.Graph): The second network graph instance.
    """
-    def __init__(self,jwt,init_feed,client,g1,g2):
+    def __init__(self,jwt,init_feed,client):
         super().__init__(init_feed,client,jwt)
         self.init_feed = init_feed
-        self.g1 = g1
-        self.g2 = g2
-        
+       
         
     def actors_feeds(self,dids):
         """Extracts feed uris created by each DID(user).
@@ -449,7 +452,7 @@ class Mapping(UserData):
         current_did=[]
         self.tags = tags
         for did in dids:
-            for d in did[1][0:1000]:
+            for d in did:
                 if len(current_did) >0:
                     prev_did = current_did.pop()
                     if d != prev_did:
@@ -476,7 +479,7 @@ class Mapping(UserData):
                                             timestamps.append(feed.get('indexedAt'))
                                             uris.append(uri)
                                     
-                                except Exception as e:
+                                except:
                                     continue
                 else:
                     current_did.append(d)
@@ -504,79 +507,12 @@ class Mapping(UserData):
                                         timestamps.append(feed.get('indexedAt'))
                                         uris.append(uri)
                                 
-                            except Exception as e:
+                            except:
                                 continue
                         
        
         return tags,timestamps,uris
         
-    """
-    def worker(self):
-    
-        
-        conn = http.client.HTTPSConnection("bsky.social")
-        payload = ''
-        headers = {
-          'Accept': 'application/json',
-          'Authorization': f'Bearer {self.jwt} '
-        }
-        current_tags = []
-        if len(self.init_feed)>0:
-            for i in range(len(self.init_feed)):
-                pattern = re.search(r'/(\w+)$',self.init_feed[i]).group(1)
-                #print(pattern)
-                if pattern == 'self':
-                    continue
-                else:
-                    conn.request("GET", f"/xrpc/app.bsky.feed.getFeedGenerator?feed={self.init_feed[i]}", payload, headers)
-                    res = conn.getresponse()
-                    data = res.read()
-                    feed_info = data.decode("utf-8")
-                    current_tag = re.search(r"#\w+", feed_info)
-                    if current_tag is not None:
-                        current_tags.append(current_tag)
-        
-
-        if self.followers_and_following() and self.actors_feeds() is not None:
-            actor_list,actor_likes,post_likes,reposts,thread_replies,dids = self.followers_and_following()
-            feeds,tags = self.actors_feeds()
-            g = Build(dids,actor_list,actor_likes,reposts,thread_replies,current_tags,tags)
-            g.build_network(self.g1)
-            g.build_network_feed(self.g2)
-            #print(tags)
-            #print('-----------changed tags follows--------------')
-            self.init_feed = feeds
-            self.datas = feeds
-            #print(self.init_feed)
-            return self.g1,self.g2
-        else:
-            return None
-        """
-
-    """
-    def rec_function(self):
-        
-        stack = [self.worker]
-        
-        while stack is not None:
-            task = stack.pop()
-            res = task()
-            if res is not None:
-          
-                g1, g2 = res
-                self.g1,self.g2 = g1, g2
-        
-                stack.append(self.worker)
-        
-   
-        feeds,g_1,g_2 = self.worker()
-        nx.write_gml(g1,'g1.gml')
-        nx.write_gm(g2,'g2.gml')
-        nx.kamada_kawai_layout(g1)
-        nx.kamada_kawai_layout(g2)
-        plt.show()
-        return g_1,g_2
-        """
         
        
 #%%
@@ -620,10 +556,7 @@ def net_card(G):
 
     card.to_latex("Bsky_network_card.tex")
     print(card)
-#%%
-g = nx.read_gml('n17.gml')
 
-net_card(g)
 #%%
 
 
