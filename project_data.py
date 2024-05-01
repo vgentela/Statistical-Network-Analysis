@@ -374,7 +374,7 @@ class Build():
                                      for i in itr_2[0]:
                                          G.add_edge(d,i, relationship='repost')
                                 if len(replier[1])!= 0:
-                                      G.add_edge(d,itr_3[0][0], relationship= 'replies')   
+                                      G.add_edge(d,str(itr_3[0]), relationship= 'replies')   
                             
                         else:
                              followers_count = a[1][0]
@@ -390,7 +390,7 @@ class Build():
                                   for i in itr_2[0]:
                                       G.add_edge(d,i, relationship='repost')
                              if len(replier[1])!= 0:
-                                   G.add_edge(d,itr_3[0][0], relationship= 'replies')    
+                                   G.add_edge(d,str(itr_3[0]), relationship= 'replies')    
                     
                     except:
                         continue
