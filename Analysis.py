@@ -13,7 +13,7 @@ def mixing_analysis(graph, attribute):
 
 def detect_communities(graph):
     # Find communities using the greedy modularity maximization
-    communities = nx.community.greedy_modularity_communities(graph,best_n=3)
+    communities = nx.community.greedy_modularity_communities(graph,best_n=20)
 
     # Visualization setup
     pos = nx.spring_layout(graph)  # Node positions in 2D space using spring layout
