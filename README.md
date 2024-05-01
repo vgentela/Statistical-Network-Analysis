@@ -3,7 +3,7 @@ In this project, Bluesky, a social media application, is represented as a networ
 
 Data Extraction:
 - The file project_data.py contains the code to extract the data from Bluesky API.
-- The file network.py is an example code to call the functions of different classes to extract data from the Bluesky API.
+- The file network.py is an example code to call the functions of different classes to extract data from the Bluesky API and [n18.gml](n18.gml) is the network generated using the initial feed(hot-classic).
 - Full_net_card displays the summary of the network. The card is available in latex format as `Bsky_network_card`.
   
 
@@ -20,6 +20,7 @@ You can find the network file in the gml format: [Network](https://github.com/vg
 To be fixed:
 - Parsing functions to be refined by using json.
 - Once the parsing methodology is changed, reading the community tag and adding it to plots is a functionality to be achieved.
+- Write a function to iteratively find feeds created by users from the current feed and extract user data from them.
   
 License:
 All the contents in this repository are licensed using [CC0 1.0 Universal LICENSE](https://github.com/vgentela/Statistical-Network-Analysis/blob/main/LICENSE)

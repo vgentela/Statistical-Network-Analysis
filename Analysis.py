@@ -1,19 +1,15 @@
 import networkx as nx
 import matplotlib.pyplot as plt
 
-G = nx.read_gml('n18.gml')
-"""
+
+
 # Apply Force-Directed layout algorithm to position nodes
 def mixing_analysis(graph, attribute):
     assortativity_coefficient = nx.attribute_assortativity_coefficient(graph, attribute)
     print(assortativity_coefficient)
     return assortativity_coefficient
 
-ac = mixing_analysis(G,'followers_count')
-
 ### Step 3: Clustering and Community Detection
-
-
 
 def detect_communities(graph):
     # Find communities using the greedy modularity maximization
@@ -39,14 +35,13 @@ def detect_communities(graph):
     plt.tight_layout()
     plt.show()
 
-    return communities  # Optionally return the communities
+    return communities 
 
-detect_communities(G)
+
 
 ### Step 4: Ranking Methodologies (PageRank)
 #Finally, let's use PageRank to rank the nodes in the network based on their influence.
 
-"""
 def rank_nodes(graph):
     pagerank = nx.pagerank(graph)
     # Sort nodes by PageRank scores in descending order
@@ -65,4 +60,4 @@ def rank_nodes(graph):
     plt.tight_layout()
     plt.show()
 
-rank_nodes(G)
+
