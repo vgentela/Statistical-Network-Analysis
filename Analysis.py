@@ -1,9 +1,10 @@
 import networkx as nx
 import matplotlib.pyplot as plt
+import numpy as np
+#%%
 
 
 
-# Apply Force-Directed layout algorithm to position nodes
 def mixing_analysis(graph, attribute):
     assortativity_coefficient = nx.attribute_assortativity_coefficient(graph, attribute)
     print(assortativity_coefficient)
@@ -13,7 +14,7 @@ def mixing_analysis(graph, attribute):
 
 def detect_communities(graph):
     # Find communities using the greedy modularity maximization
-    communities = nx.community.greedy_modularity_communities(graph,best_n=20)
+    communities = nx.community.greedy_modularity_communities(graph,best_n=100)
 
     # Visualization setup
     pos = nx.spring_layout(graph)  # Node positions in 2D space using spring layout
@@ -26,10 +27,10 @@ def detect_communities(graph):
             color_map[node] = idx  # Assign community index as color
 
     # Draw nodes with community colors
-    nx.draw_networkx_nodes(graph, pos, node_color=[colors(color_map[node] / len(communities)) for node in graph], node_size=50)
+    nx.draw_networkx_nodes(graph, pos, node_color=[colors(color_map[node] / len(communities)) for node in graph], node_size=30)
 
     # Draw edges
-    nx.draw_networkx_edges(graph, pos, alpha=0.5)
+    nx.draw_networkx_edges(graph, pos, alpha=0.2)
 
     plt.savefig('greedy_modularity_communities.png')
     plt.tight_layout()
@@ -40,7 +41,7 @@ def detect_communities(graph):
 
 
 ### Step 4: Ranking Methodologies (PageRank)
-#Finally, let's use PageRank to rank the nodes in the network based on their influence.
+#PageRank to rank the nodes in the network based on their influence.
 
 def rank_nodes(graph):
     pagerank = nx.pagerank(graph)
@@ -60,4 +61,9 @@ def rank_nodes(graph):
     plt.tight_layout()
     plt.show()
 
-
+#%%
+g = nx.read_gml('n19.gml')
+#%%
+communities = detect_communities(g)
+#%%
+len(np.unique(communities))
